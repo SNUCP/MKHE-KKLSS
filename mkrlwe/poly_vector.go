@@ -91,6 +91,15 @@ func (r *RingQP) NewPolyVecLvl(dim, levelQ, levelP int) *PolyQPVector {
 // AddLvl adds p1 to p2 coefficient-wise and writes the result on p3.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) AddLvl(levelQ, levelP int, p1, p2, pOut *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot AddLvl: input poly vectors have different dimensions")
+	}
+
+	if p2.Dim() != pOut.Dim() {
+		panic("cannot AddLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -102,6 +111,14 @@ func (r *RingQP) AddLvl(levelQ, levelP int, p1, p2, pOut *PolyQPVector) {
 // AddNoModLvl adds p1 to p2 coefficient-wise and writes the result on p3 without modular reduction.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) AddNoModLvl(levelQ, levelP int, p1, p2, pOut *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot AddNoModLvl: input poly vectors have different dimensions")
+	}
+
+	if p2.Dim() != pOut.Dim() {
+		panic("cannot AddNoModLvl: input poly vectors have different dimensions")
+	}
 
 	dim := p1.Dim()
 
@@ -115,6 +132,14 @@ func (r *RingQP) AddNoModLvl(levelQ, levelP int, p1, p2, pOut *PolyQPVector) {
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) SubLvl(levelQ, levelP int, p1, p2, pOut *PolyQPVector) {
 
+	if p1.Dim() != p2.Dim() {
+		panic("cannot SubLvl: input poly vectors have different dimensions")
+	}
+
+	if p2.Dim() != pOut.Dim() {
+		panic("cannot SubLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -126,6 +151,11 @@ func (r *RingQP) SubLvl(levelQ, levelP int, p1, p2, pOut *PolyQPVector) {
 // NTTLvl computes the NTT of p1 and returns the result on p2.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) NTTLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
+
+	if p.Dim() != pOut.Dim() {
+		panic("cannot NTTLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -137,6 +167,11 @@ func (r *RingQP) NTTLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
 // InvNTTLvl computes the inverse-NTT of p1 and returns the result on p2.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) InvNTTLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
+
+	if p.Dim() != pOut.Dim() {
+		panic("cannot InvNTTLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -149,6 +184,11 @@ func (r *RingQP) InvNTTLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 // Output values are in the range [0, 2q-1].
 func (r *RingQP) NTTLazyLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
+
+	if p.Dim() != pOut.Dim() {
+		panic("cannot NTTLazyLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -160,6 +200,11 @@ func (r *RingQP) NTTLazyLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
 // MFormLvl switches p1 to the Montgomery domain and writes the result on p2.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) MFormLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
+
+	if p.Dim() != pOut.Dim() {
+		panic("cannot MFormLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -171,6 +216,11 @@ func (r *RingQP) MFormLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
 // InvMFormLvl switches back p1 from the Montgomery domain to the conventional domain and writes the result on p2.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) InvMFormLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
+
+	if p.Dim() != pOut.Dim() {
+		panic("cannot InvMFormLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -182,6 +232,15 @@ func (r *RingQP) InvMFormLvl(levelQ, levelP int, p, pOut *PolyQPVector) {
 // MulCoeffsMontgomeryLvl multiplies p1 by p2 coefficient-wise with a Montgomery modular reduction.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) MulCoeffsMontgomeryLvl(levelQ, levelP int, p1, p2, p3 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot MulCoeffsMontgomeryLvl: input poly vectors have different dimensions")
+	}
+
+	if p2.Dim() != p3.Dim() {
+		panic("cannot MulCoeffsMontgomeryLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -195,6 +254,15 @@ func (r *RingQP) MulCoeffsMontgomeryLvl(levelQ, levelP int, p1, p2, p3 *PolyQPVe
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 // Result is within [0, 2q-1].
 func (r *RingQP) MulCoeffsMontgomeryConstantLvl(levelQ, levelP int, p1, p2, p3 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot MulCoeffsMontgomeryConstantLvl: input poly vectors have different dimensions")
+	}
+
+	if p2.Dim() != p3.Dim() {
+		panic("cannot MulCoeffsMontgomeryConstantLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -208,6 +276,15 @@ func (r *RingQP) MulCoeffsMontgomeryConstantLvl(levelQ, levelP int, p1, p2, p3 *
 // constant-time Montgomery modular reduction and adds the result on p3.
 // Result is within [0, 2q-1]
 func (r *RingQP) MulCoeffsMontgomeryConstantAndAddNoModLvl(levelQ, levelP int, p1, p2, p3 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot MulCoeffsMontgomeryConstantAndAddNoModLvl: input poly vectors have different dimensions")
+	}
+
+	if p2.Dim() != p3.Dim() {
+		panic("cannot MulCoeffsMontgomeryConstantAndAddNoModLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -222,6 +299,14 @@ func (r *RingQP) MulCoeffsMontgomeryConstantAndAddNoModLvl(levelQ, levelP int, p
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) MulCoeffsMontgomeryAndSubLvl(levelQ, levelP int, p1, p2, p3 *PolyQPVector) {
 
+	if p1.Dim() != p2.Dim() {
+		panic("cannot MulCoeffsMontgomeryAndSubLvl: input poly vectors have different dimensions")
+	}
+
+	if p2.Dim() != p3.Dim() {
+		panic("cannot MulCoeffsMontgomeryAndSubLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -235,6 +320,15 @@ func (r *RingQP) MulCoeffsMontgomeryAndSubLvl(levelQ, levelP int, p1, p2, p3 *Po
 // Montgomery modular reduction and adds the result to p3.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) MulCoeffsMontgomeryAndAddLvl(levelQ, levelP int, p1, p2, p3 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot MulCoeffsMontgomeryAndAddLvl: input poly vectors have different dimensions")
+	}
+
+	if p2.Dim() != p3.Dim() {
+		panic("cannot MulCoeffsMontgomeryAndAddLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -249,6 +343,11 @@ func (r *RingQP) MulCoeffsMontgomeryAndAddLvl(levelQ, levelP int, p1, p2, p3 *Po
 // Method is not in place.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) PermuteNTTWithIndexLvl(levelQ, levelP int, p1 *PolyQPVector, index []uint64, p2 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot PermuteNTTWithIndexLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -263,6 +362,11 @@ func (r *RingQP) PermuteNTTWithIndexLvl(levelQ, levelP int, p1 *PolyQPVector, in
 // Method is not in place.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) PermuteNTTWithIndexAndAddNoModLvl(levelQ, levelP int, p1 *PolyQPVector, index []uint64, p2 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot PermuteNTTWithIndexAndAddNoModLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
@@ -275,6 +379,11 @@ func (r *RingQP) PermuteNTTWithIndexAndAddNoModLvl(levelQ, levelP int, p1 *PolyQ
 // CopyValuesLvl copies the values of p1 on p2.
 // The operation is performed at levelQ for the ringQ and levelP for the ringP.
 func (r *RingQP) CopyValuesLvl(levelQ, levelP int, p1, p2 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot CopyValuesLvl: input poly vectors have different dimensions")
+	}
+
 	dim := p1.Dim()
 
 	for i := 0; i < dim; i++ {
