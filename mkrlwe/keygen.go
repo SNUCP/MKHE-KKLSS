@@ -132,6 +132,7 @@ func (keygen *KeyGenerator) genGaussianSampleVector(e *PolyQPVector) {
 }
 
 // GenRelinKey generates a new EvaluationKey that will be used to relinearize Ciphertexts during multiplication.
+// RelinearizationKeys are triplet of polyvector in MontgomeryForm
 func (keygen *KeyGenerator) GenRelinearizationKey(sk *SecretKey) (rlk *RelinearizationKey) {
 
 	if keygen.params.PCount() == 0 {
@@ -179,6 +180,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk *SecretKey) (rlk *Relineari
 	keygen.genGaussianSampleVector(e)
 	ringQP.MulPolyMontgomeryLvl(levelQ, levelP, keygen.params.CRS[0], &sk.Value, rlk.Value[0])
 	ringQP.AddLvl(levelQ, levelP, e, rlk.Value[0], rlk.Value[0])
+	ringQP.MFormLvl(levelQ, levelP, rlk.Value[0], rlk.Value[0])
 
 	//generate vector d
 	ringQP.MulPolyMontgomeryLvl(levelQ, levelP, keygen.params.CRS[0], &r.Value, rlk.Value[1])
@@ -186,6 +188,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk *SecretKey) (rlk *Relineari
 	ringQP.AddLvl(levelQ, levelP, tmp, rlk.Value[1], rlk.Value[1])
 	keygen.genGaussianSampleVector(e)
 	ringQP.AddLvl(levelQ, levelP, e, rlk.Value[1], rlk.Value[1])
+	ringQP.MFormLvl(levelQ, levelP, rlk.Value[1], rlk.Value[1])
 
 	//generate vector v
 	ringQP.MulPolyMontgomeryLvl(levelQ, levelP, keygen.params.CRS[1], &sk.Value, rlk.Value[2])
@@ -193,6 +196,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk *SecretKey) (rlk *Relineari
 	ringQP.AddLvl(levelQ, levelP, tmp, rlk.Value[2], rlk.Value[2])
 	keygen.genGaussianSampleVector(e)
 	ringQP.AddLvl(levelQ, levelP, e, rlk.Value[2], rlk.Value[2])
+	ringQP.MFormLvl(levelQ, levelP, rlk.Value[2], rlk.Value[2])
 
 	return
 }

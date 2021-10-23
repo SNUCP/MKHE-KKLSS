@@ -144,3 +144,42 @@ func NewRelinearizationKey(params Parameters, levelQ, levelP int) *Relinearizati
 
 	return rlk
 }
+
+// CopyNew creates a deep copy of the receiver secret key and returns it.
+func (sk *SecretKey) CopyNew() *SecretKey {
+	if sk == nil {
+		return nil
+	}
+
+	ret := new(SecretKey)
+	ret.Value = sk.Value.CopyNew()
+
+	return ret
+}
+
+// CopyNew creates a deep copy of the receiver PublicKey and returns it.
+func (pk *PublicKey) CopyNew() *PublicKey {
+	if pk == nil {
+		return nil
+	}
+
+	ret := new(PublicKey)
+	ret.Value[0] = pk.Value[0].CopyNew()
+	ret.Value[1] = pk.Value[1].CopyNew()
+
+	return ret
+}
+
+// CopyNew creates a deep copy of the receiver RelinearizationKey and returns it.
+func (rlk *RelinearizationKey) CopyNew() *RelinearizationKey {
+	if rlk == nil {
+		return nil
+	}
+
+	ret := new(RelinearizationKey)
+	ret.Value[0] = rlk.Value[0].CopyNew()
+	ret.Value[1] = rlk.Value[1].CopyNew()
+	ret.Value[2] = rlk.Value[2].CopyNew()
+
+	return ret
+}

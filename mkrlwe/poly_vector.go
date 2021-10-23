@@ -3,6 +3,7 @@ package mkrlwe
 import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/ring"
 import "math/big"
+import "math"
 
 type PolyQPVector struct {
 	Value []rlwe.PolyQP
@@ -384,28 +385,16 @@ func (r *RingQP) PermuteNTTWithIndexAndAddNoModLvl(levelQ, levelP int, p1 *PolyQ
 	}
 }
 
-// MulPolyLvl multiplies each entry of p1 by a polynomial b and writes the result on p2.
-// Inputs should be in NTT form
+// MulPolyMontgomeryLvl multiplies each entry of p1 by a polynomial b and writes the result on p2.
+// Inputs should be in NTT form, and one of them should be in MForm
 // reduction algorithm uses Montgomery reduction
-func (r *RingQP) MulPolyLvl(levelQ, levelP int, p1 *PolyQPVector, b *rlwe.PolyQP, p2 *PolyQPVector) {
+func (r *RingQP) MulPolyMontgomeryLvl(levelQ, levelP int, p1 *PolyQPVector, b *rlwe.PolyQP, p2 *PolyQPVector) {
 
 	if p1.Dim() != p2.Dim() {
 		panic("cannot MulPoly: input and output poly vectors have different dimensions")
 	}
 
-	if (!b.P.IsNTT) || (!b.Q.IsNTT) {
-		panic("cannot MulPoly: input polynomial is not in NTT form")
-	}
-
 	dim := p1.Dim()
-
-	for i := 0; i < dim; i++ {
-		if (!p1.Value[i].P.IsNTT) || (!p1.Value[i].Q.IsNTT) {
-			panic("cannot MulPoly: input polynomial is not in NTT form")
-		}
-	}
-
-	r.MFormLvl(levelQ, levelP, p1, p2)
 
 	for i := 0; i < dim; i++ {
 		r.RingQ.MulCoeffsMontgomeryLvl(levelQ, b.Q, p2.Value[i].Q, p2.Value[i].Q)
@@ -418,7 +407,7 @@ func (r *RingQP) MulPolyLvl(levelQ, levelP int, p1 *PolyQPVector, b *rlwe.PolyQP
 func (r *RingQP) MulScalarBigintLvl(levelQ, levelP int, p1 *PolyQPVector, b *big.Int, p2 *PolyQPVector) {
 
 	if p1.Dim() != p2.Dim() {
-		panic("cannot MulPoly: input and output poly vectors have different dimensions")
+		panic("cannot MulScalarBigintLvl: input and output poly vectors have different dimensions")
 	}
 
 	dim := p1.Dim()
@@ -426,6 +415,65 @@ func (r *RingQP) MulScalarBigintLvl(levelQ, levelP int, p1 *PolyQPVector, b *big
 	for i := 0; i < dim; i++ {
 		r.RingQ.MulScalarBigintLvl(levelQ, p1.Value[i].Q, b, p2.Value[i].Q)
 		r.RingP.MulScalarBigintLvl(levelP, p1.Value[i].P, b, p2.Value[i].P)
+	}
+}
+
+// InternalProductLvl performs internal product to input ringQ polynomial & polyVector
+func (r *RingQP) InternalProductLvl(ks *rlwe.KeySwitcher, levelQ int, cx *ring.Poly, polvec *PolyQPVector, c0Q, c0P, c1Q, c1P *ring.Poly) {
+
+	ringQ := ks.RingQ()
+	ringP := ks.RingP()
+	ringQP := ks.RingQP()
+
+	c2QP := ks.Pool[0]
+
+	var cxNTT, cxInvNTT *ring.Poly
+	if cx.IsNTT {
+		cxNTT = cx
+		cxInvNTT = ks.PoolInvNTT
+		ringQ.InvNTTLvl(levelQ, cxNTT, cxInvNTT)
+	} else {
+		cxNTT = ks.PoolInvNTT
+		cxInvNTT = cx
+		ringQ.NTTLvl(levelQ, cxInvNTT, cxNTT)
+	}
+
+	alpha := len(polvec.Value[0].P.Coeffs)
+	levelP := alpha - 1
+	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+
+	QiOverF := ks.Parameters.QiOverflowMargin(levelQ) >> 1
+	PiOverF := ks.Parameters.PiOverflowMargin(levelP) >> 1
+	reduce := 0
+	c0QP := rlwe.PolyQP{c0Q, c0P}
+
+	// Key switching with CRT decomposition for the Qi
+	for i := 0; i < beta; i++ {
+		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, cxNTT, cxInvNTT, c2QP.Q, c2QP.P)
+
+		if i == 0 {
+			ringQP.MulCoeffsMontgomeryConstantLvl(levelQ, levelP, polvec.Value[i], c2QP, c0QP)
+		} else {
+			ringQP.MulCoeffsMontgomeryConstantAndAddNoModLvl(levelQ, levelP, polvec.Value[i], c2QP, c0QP)
+		}
+
+		if reduce%QiOverF == QiOverF-1 {
+			ringQ.ReduceLvl(levelQ, c0QP.Q, c0QP.Q)
+		}
+
+		if reduce%PiOverF == PiOverF-1 {
+			ringP.ReduceLvl(levelP, c0QP.P, c0QP.P)
+		}
+
+		reduce++
+	}
+
+	if reduce%QiOverF != 0 {
+		ringQ.ReduceLvl(levelQ, c0QP.Q, c0QP.Q)
+	}
+
+	if reduce%PiOverF != 0 {
+		ringP.ReduceLvl(levelP, c0QP.P, c0QP.P)
 	}
 }
 
