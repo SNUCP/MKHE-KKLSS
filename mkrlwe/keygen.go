@@ -42,10 +42,11 @@ func NewKeyGenerator(params Parameters) *KeyGenerator {
 
 // genSecretKeyFromSampler generates a new SecretKey sampled from the provided Sampler.
 // output SecretKey is in MForm
-func (keygen *KeyGenerator) genSecretKeyFromSampler(sampler ring.Sampler) *SecretKey {
+func (keygen *KeyGenerator) genSecretKeyFromSampler(sampler ring.Sampler, id string) *SecretKey {
 	ringQP := keygen.params.RingQP()
 	sk := new(SecretKey)
 	sk.Value = ringQP.NewPoly()
+	sk.ID = id
 	levelQ, levelP := keygen.params.QCount()-1, keygen.params.PCount()-1
 	sampler.Read(sk.Value.Q)
 	ringQP.ExtendBasisSmallNormAndCenter(sk.Value.Q, levelP, nil, sk.Value.P)
@@ -55,33 +56,33 @@ func (keygen *KeyGenerator) genSecretKeyFromSampler(sampler ring.Sampler) *Secre
 }
 
 // GenSecretKey generates a new SecretKey with the distribution [1/3, 1/3, 1/3].
-func (keygen *KeyGenerator) GenSecretKey() (sk *SecretKey) {
-	return keygen.GenSecretKeyWithDistrib(1.0 / 3)
+func (keygen *KeyGenerator) GenSecretKey(id string) (sk *SecretKey) {
+	return keygen.GenSecretKeyWithDistrib(1.0/3, id)
 }
 
 // GenSecretKey generates a new SecretKey with the error distribution.
-func (keygen *KeyGenerator) GenSecretKeyGaussian() (sk *SecretKey) {
-	return keygen.genSecretKeyFromSampler(keygen.gaussianSamplerQ)
+func (keygen *KeyGenerator) GenSecretKeyGaussian(id string) (sk *SecretKey) {
+	return keygen.genSecretKeyFromSampler(keygen.gaussianSamplerQ, id)
 }
 
 // GenSecretKeyWithDistrib generates a new SecretKey with the distribution [(p-1)/2, p, (p-1)/2].
-func (keygen *KeyGenerator) GenSecretKeyWithDistrib(p float64) (sk *SecretKey) {
+func (keygen *KeyGenerator) GenSecretKeyWithDistrib(p float64, id string) (sk *SecretKey) {
 	prng, err := utils.NewPRNG()
 	if err != nil {
 		panic(err)
 	}
 	ternarySamplerMontgomery := ring.NewTernarySampler(prng, keygen.params.RingQ(), p, false)
-	return keygen.genSecretKeyFromSampler(ternarySamplerMontgomery)
+	return keygen.genSecretKeyFromSampler(ternarySamplerMontgomery, id)
 }
 
 // GenSecretKeySparse generates a new SecretKey with exactly hw non-zero coefficients.
-func (keygen *KeyGenerator) GenSecretKeySparse(hw int) (sk *SecretKey) {
+func (keygen *KeyGenerator) GenSecretKeySparse(hw int, id string) (sk *SecretKey) {
 	prng, err := utils.NewPRNG()
 	if err != nil {
 		panic(err)
 	}
 	ternarySamplerMontgomery := ring.NewTernarySamplerSparse(prng, keygen.params.RingQ(), hw, false)
-	return keygen.genSecretKeyFromSampler(ternarySamplerMontgomery)
+	return keygen.genSecretKeyFromSampler(ternarySamplerMontgomery, id)
 }
 
 // GenPublicKey generates a new public key from the provided SecretKey.
@@ -91,9 +92,11 @@ func (keygen *KeyGenerator) GenPublicKey(sk *SecretKey) (pk *PublicKey) {
 	ringQP := keygen.params.RingQP()
 	levelQ, levelP := keygen.params.QCount()-1, keygen.params.PCount()-1
 
+	id := sk.ID
+
 	//pk[0] = [-as + e]
 	//pk[1] = [a]
-	pk = NewPublicKey(keygen.params)
+	pk = NewPublicKey(keygen.params, id)
 	keygen.gaussianSamplerQ.Read(pk.Value[0].Q)
 	ringQP.ExtendBasisSmallNormAndCenter(pk.Value[0].Q, levelP, nil, pk.Value[0].P)
 	ringQP.NTTLvl(levelQ, levelP, pk.Value[0], pk.Value[0])
@@ -107,13 +110,13 @@ func (keygen *KeyGenerator) GenPublicKey(sk *SecretKey) (pk *PublicKey) {
 
 // GenKeyPair generates a new SecretKey with distribution [1/3, 1/3, 1/3] and a corresponding public key.
 func (keygen *KeyGenerator) GenKeyPair() (sk *SecretKey, pk *PublicKey) {
-	sk = keygen.GenSecretKey()
+	sk = keygen.GenSecretKey(sk.ID)
 	return sk, keygen.GenPublicKey(sk)
 }
 
 // GenKeyPairSparse generates a new SecretKey with exactly hw non zero coefficients [1/2, 0, 1/2].
 func (keygen *KeyGenerator) GenKeyPairSparse(hw int) (sk *SecretKey, pk *PublicKey) {
-	sk = keygen.GenSecretKeySparse(hw)
+	sk = keygen.GenSecretKeySparse(hw, sk.ID)
 	return sk, keygen.GenPublicKey(sk)
 }
 
@@ -144,13 +147,15 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk *SecretKey) (rlk *Relineari
 	ringQ := keygen.params.RingQ()
 	ringQP := RingQP{*keygen.params.RingQP()}
 
+	id := sk.ID
+
 	//rlk = (b, d, v)
-	rlk = NewRelinearizationKey(keygen.params, levelQ, levelP)
+	rlk = NewRelinearizationKey(keygen.params, levelQ, levelP, id)
 	alpha := levelP + 1
 	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
 
 	//generate temporary random vector r
-	r := keygen.GenSecretKey()
+	r := keygen.GenSecretKey(sk.ID)
 
 	//temporary vector
 	tmp := ringQP.NewPolyVector(beta)
