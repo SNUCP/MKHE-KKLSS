@@ -2,6 +2,7 @@ package mkrlwe
 
 import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/ring"
+import "math/big"
 
 type PolyQPVector struct {
 	Value []rlwe.PolyQP
@@ -61,6 +62,14 @@ func (polvec *PolyQPVector) CopyNew() *PolyQPVector {
 
 type RingQP struct {
 	rlwe.RingQP
+}
+
+// NewRingQP returns a new RingQP
+func NewRingQP(r rlwe.RingQP) *RingQP {
+	ret := new(RingQP)
+	ret.RingP = r.RingP
+	ret.RingQ = r.RingQ
+	return ret
 }
 
 // NewPoly creates a new polynomial vector of given dimension with all coefficients set to 0.
@@ -373,7 +382,51 @@ func (r *RingQP) PermuteNTTWithIndexAndAddNoModLvl(levelQ, levelP int, p1 *PolyQ
 		ring.PermuteNTTWithIndexAndAddNoModLvl(levelQ, p1.Value[i].Q, index, p2.Value[i].Q)
 		ring.PermuteNTTWithIndexAndAddNoModLvl(levelP, p1.Value[i].P, index, p2.Value[i].P)
 	}
+}
 
+// MulPolyLvl multiplies each entry of p1 by a polynomial b and writes the result on p2.
+// Inputs should be in NTT form
+// reduction algorithm uses Montgomery reduction
+func (r *RingQP) MulPolyLvl(levelQ, levelP int, p1 *PolyQPVector, b *rlwe.PolyQP, p2 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot MulPoly: input and output poly vectors have different dimensions")
+	}
+
+	if (!b.P.IsNTT) || (!b.Q.IsNTT) {
+		panic("cannot MulPoly: input polynomial is not in NTT form")
+	}
+
+	dim := p1.Dim()
+
+	for i := 0; i < dim; i++ {
+		if (!p1.Value[i].P.IsNTT) || (!p1.Value[i].Q.IsNTT) {
+			panic("cannot MulPoly: input polynomial is not in NTT form")
+		}
+	}
+
+	r.MFormLvl(levelQ, levelP, p1, p2)
+
+	for i := 0; i < dim; i++ {
+		r.RingQ.MulCoeffsMontgomeryLvl(levelQ, b.Q, p2.Value[i].Q, p2.Value[i].Q)
+		r.RingP.MulCoeffsMontgomeryLvl(levelP, b.P, p2.Value[i].P, p2.Value[i].P)
+	}
+}
+
+// MulScalarBigintLvl multiplies each entry of p1 by a bigint b and writes the result on p2.
+// reduction algorithm uses Montgomery reduction
+func (r *RingQP) MulScalarBigintLvl(levelQ, levelP int, p1 *PolyQPVector, b *big.Int, p2 *PolyQPVector) {
+
+	if p1.Dim() != p2.Dim() {
+		panic("cannot MulPoly: input and output poly vectors have different dimensions")
+	}
+
+	dim := p1.Dim()
+
+	for i := 0; i < dim; i++ {
+		r.RingQ.MulScalarBigintLvl(levelQ, p1.Value[i].Q, b, p2.Value[i].Q)
+		r.RingP.MulScalarBigintLvl(levelP, p1.Value[i].P, b, p2.Value[i].P)
+	}
 }
 
 // CopyValuesLvl copies the values of p1 on p2.
