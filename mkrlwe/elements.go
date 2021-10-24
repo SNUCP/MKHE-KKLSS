@@ -4,6 +4,10 @@ import "github.com/ldsec/lattigo/v2/ring"
 import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/utils"
 
+type Plaintext struct {
+	rlwe.Plaintext
+}
+
 type Ciphertext struct {
 	Value0 *ring.Poly
 	Value  map[string]*ring.Poly
