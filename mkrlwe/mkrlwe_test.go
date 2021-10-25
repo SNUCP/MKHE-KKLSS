@@ -275,7 +275,7 @@ func testDecryptor(kgen KeyGenerator, t *testing.T) {
 		decryptor.Decrypt(ciphertext, skSet, &plaintext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
 		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
-		require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
 	})
 
 	t.Run(testString(params, "Encrypt/MinLevel/"), func(t *testing.T) {
@@ -286,6 +286,6 @@ func testDecryptor(kgen KeyGenerator, t *testing.T) {
 		decryptor.Decrypt(ciphertext, skSet, &plaintext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
 		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
-		require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
 	})
 }

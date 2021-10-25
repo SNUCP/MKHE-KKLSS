@@ -28,7 +28,7 @@ func NewCiphertext(params rlwe.Parameters, idset []string, degree, level int) *C
 
 // NewCiphertextNTT returns a new Element with zero values and the NTT flags set
 func NewCiphertextNTT(params rlwe.Parameters, idset []string, degree, level int) *Ciphertext {
-	el := new(Ciphertext)
+	el := NewCiphertext(params, idset, degree, level)
 	el.Value0 = ring.NewPoly(params.N(), level+1)
 	el.Value0.IsNTT = true
 
@@ -133,10 +133,11 @@ func SwitchCiphertextRingDegree(ctIn *Ciphertext, ctOut *Ciphertext) {
 func (el *Ciphertext) CopyNew() *Ciphertext {
 
 	ctxCopy := new(Ciphertext)
+	ctxCopy.Value = make(map[string]*ring.Poly)
 
 	ctxCopy.Value0 = el.Value0.CopyNew()
 	for id := range el.Value {
-		ctxCopy.Value[id] = el.Value[id]
+		ctxCopy.Value[id] = el.Value[id].CopyNew()
 	}
 
 	return ctxCopy
@@ -144,6 +145,11 @@ func (el *Ciphertext) CopyNew() *Ciphertext {
 
 // Copy copies the input element and its parameters on the target element.
 func (el *Ciphertext) Copy(ctxCopy *Ciphertext) {
+
+	// clear target element
+	for id := range ctxCopy.Value {
+		delete(el.Value, id)
+	}
 
 	if el != ctxCopy {
 		for id := range ctxCopy.Value {
