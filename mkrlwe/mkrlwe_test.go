@@ -53,6 +53,8 @@ func TestMKRLWE(t *testing.T) {
 
 		testGenKeyPair(kgen, t)
 		testRelinKeyGen(kgen, t)
+		testEncryptor(*kgen, t)
+		testDecryptor(*kgen, t)
 	}
 
 }
@@ -207,5 +209,83 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		}
 
 	})
+}
 
+func testEncryptor(kgen KeyGenerator, t *testing.T) {
+
+	params := kgen.params
+
+	var user1 string = "tetsUser1"
+	var users []string = []string{user1}
+
+	sk, pk := kgen.GenKeyPair(user1)
+
+	ringQ := params.RingQ()
+
+	t.Run(testString(params, "Encrypt/Pk/Slow/MaxLevel/"), func(t *testing.T) {
+		if params.PCount() == 0 {
+			t.Skip()
+		}
+		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, params.MaxLevel())}
+		plaintext.Value.IsNTT = true
+		encryptor := NewEncryptor(params, pk)
+		ciphertext := NewCiphertextNTT(params.Parameters, users, 1, plaintext.Level())
+		encryptor.Encrypt(&plaintext, ciphertext)
+		require.Equal(t, plaintext.Level(), ciphertext.Level())
+		ringQ.MulCoeffsMontgomeryAndAddLvl(ciphertext.Level(), ciphertext.Value[user1], sk.Value.Q, ciphertext.Value0)
+		ringQ.InvNTTLvl(ciphertext.Level(), ciphertext.Value0, ciphertext.Value0)
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, ciphertext.Value0))
+	})
+
+	t.Run(testString(params, "Encrypt/Pk/Slow/MinLevel/"), func(t *testing.T) {
+		if params.PCount() == 0 {
+			t.Skip()
+		}
+		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, params.MaxLevel())}
+		plaintext.Value.IsNTT = true
+		encryptor := NewEncryptor(params, pk)
+		ciphertext := NewCiphertextNTT(params.Parameters, users, 1, plaintext.Level())
+		encryptor.Encrypt(&plaintext, ciphertext)
+		require.Equal(t, plaintext.Level(), ciphertext.Level())
+		ringQ.MulCoeffsMontgomeryAndAddLvl(ciphertext.Level(), ciphertext.Value[user1], sk.Value.Q, ciphertext.Value0)
+		ringQ.InvNTTLvl(ciphertext.Level(), ciphertext.Value0, ciphertext.Value0)
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, ciphertext.Value0))
+	})
+}
+
+func testDecryptor(kgen KeyGenerator, t *testing.T) {
+	params := kgen.params
+
+	var user1 string = "tetsUser1"
+	var users []string = []string{user1}
+
+	sk, pk := kgen.GenKeyPair(user1)
+	ringQ := params.RingQ()
+	encryptor := NewEncryptor(params, pk)
+	decryptor := NewDecryptor(params)
+
+	skSet := NewSecretKeySet()
+	skSet.AddSecretKey(sk)
+
+	t.Run(testString(params, "Decrypt/MaxLevel/"), func(t *testing.T) {
+		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, params.MaxLevel())}
+		plaintext.Value.IsNTT = true
+		ciphertext := NewCiphertextNTT(params.Parameters, users, 1, plaintext.Level())
+		encryptor.Encrypt(&plaintext, ciphertext)
+		decryptor.Decrypt(ciphertext, skSet, &plaintext)
+		require.Equal(t, plaintext.Level(), ciphertext.Level())
+		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
+		require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
+	})
+
+	t.Run(testString(params, "Encrypt/MinLevel/"), func(t *testing.T) {
+		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, params.MaxLevel())}
+		plaintext.Value.IsNTT = true
+		ciphertext := NewCiphertextNTT(params.Parameters, users, 1, plaintext.Level())
+		encryptor.Encrypt(&plaintext, ciphertext)
+		decryptor.Decrypt(ciphertext, skSet, &plaintext)
+		require.Equal(t, plaintext.Level(), ciphertext.Level())
+		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
+		require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
+	})
 }
