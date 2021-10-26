@@ -14,7 +14,7 @@ type Ciphertext struct {
 }
 
 // NewCiphertext returns a new Element with zero values
-func NewCiphertext(params rlwe.Parameters, idset []string, degree, level int) *Ciphertext {
+func NewCiphertext(params rlwe.Parameters, idset []string, level int) *Ciphertext {
 	el := new(Ciphertext)
 	el.Value0 = ring.NewPoly(params.N(), level+1)
 	el.Value = make(map[string]*ring.Poly)
@@ -27,8 +27,8 @@ func NewCiphertext(params rlwe.Parameters, idset []string, degree, level int) *C
 }
 
 // NewCiphertextNTT returns a new Element with zero values and the NTT flags set
-func NewCiphertextNTT(params rlwe.Parameters, idset []string, degree, level int) *Ciphertext {
-	el := NewCiphertext(params, idset, degree, level)
+func NewCiphertextNTT(params rlwe.Parameters, idset []string, level int) *Ciphertext {
+	el := NewCiphertext(params, idset, level)
 	el.Value0 = ring.NewPoly(params.N(), level+1)
 	el.Value0.IsNTT = true
 

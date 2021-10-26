@@ -229,7 +229,7 @@ func testEncryptor(kgen KeyGenerator, t *testing.T) {
 		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, params.MaxLevel())}
 		plaintext.Value.IsNTT = true
 		encryptor := NewEncryptor(params, pk)
-		ciphertext := NewCiphertextNTT(params.Parameters, users, 1, plaintext.Level())
+		ciphertext := NewCiphertextNTT(params.Parameters, users, plaintext.Level())
 		encryptor.Encrypt(&plaintext, ciphertext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
 		ringQ.MulCoeffsMontgomeryAndAddLvl(ciphertext.Level(), ciphertext.Value[user1], sk.Value.Q, ciphertext.Value0)
@@ -244,7 +244,7 @@ func testEncryptor(kgen KeyGenerator, t *testing.T) {
 		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, params.MaxLevel())}
 		plaintext.Value.IsNTT = true
 		encryptor := NewEncryptor(params, pk)
-		ciphertext := NewCiphertextNTT(params.Parameters, users, 1, plaintext.Level())
+		ciphertext := NewCiphertextNTT(params.Parameters, users, plaintext.Level())
 		encryptor.Encrypt(&plaintext, ciphertext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
 		ringQ.MulCoeffsMontgomeryAndAddLvl(ciphertext.Level(), ciphertext.Value[user1], sk.Value.Q, ciphertext.Value0)
@@ -270,7 +270,7 @@ func testDecryptor(kgen KeyGenerator, t *testing.T) {
 	t.Run(testString(params, "Decrypt/MaxLevel/"), func(t *testing.T) {
 		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, params.MaxLevel())}
 		plaintext.Value.IsNTT = true
-		ciphertext := NewCiphertextNTT(params.Parameters, users, 1, plaintext.Level())
+		ciphertext := NewCiphertextNTT(params.Parameters, users, plaintext.Level())
 		encryptor.Encrypt(&plaintext, ciphertext)
 		decryptor.Decrypt(ciphertext, skSet, &plaintext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
@@ -281,7 +281,7 @@ func testDecryptor(kgen KeyGenerator, t *testing.T) {
 	t.Run(testString(params, "Encrypt/MinLevel/"), func(t *testing.T) {
 		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, params.MaxLevel())}
 		plaintext.Value.IsNTT = true
-		ciphertext := NewCiphertextNTT(params.Parameters, users, 1, plaintext.Level())
+		ciphertext := NewCiphertextNTT(params.Parameters, users, plaintext.Level())
 		encryptor.Encrypt(&plaintext, ciphertext)
 		decryptor.Decrypt(ciphertext, skSet, &plaintext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
