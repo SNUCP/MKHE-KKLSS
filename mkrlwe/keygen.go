@@ -38,7 +38,6 @@ func NewKeyGenerator(params *Parameters) *KeyGenerator {
 	keygen.uniformSamplerQ = ring.NewUniformSampler(prng, params.RingQ())
 	keygen.uniformSamplerP = ring.NewUniformSampler(prng, params.RingP())
 
-	ringP := keygen.params.RingP()
 	ringQ := keygen.params.RingQ()
 	ringQP := keygen.params.RingQP()
 	levelQ, levelP := params.QCount()-1, params.PCount()-1
@@ -50,24 +49,40 @@ func NewKeyGenerator(params *Parameters) *KeyGenerator {
 		keygen.gadgetVector[i] = ringQP.NewPoly()
 	}
 
+	var pBigInt *big.Int
+	if levelP == keygen.params.PCount()-1 {
+		pBigInt = keygen.params.RingP().ModulusBigint
+	} else {
+		P := keygen.params.RingP().Modulus
+		pBigInt = new(big.Int).SetUint64(P[0])
+		for i := 1; i < levelP+1; i++ {
+			pBigInt.Mul(pBigInt, ring.NewUint(P[i]))
+		}
+	}
+
 	//generate gadget vector
 	g := keygen.gadgetVector
+	ringQ.AddScalarBigint(keygen.poolQ, pBigInt, keygen.poolQ)
+
 	for i := 0; i < beta; i++ {
-		//compute pq_hat_i
-		pq_hat := new(big.Int).Set(ringQ.ModulusBigint)
-		pq_hat.Mul(pq_hat, ringP.ModulusBigint)
+		ringQP.NTTLvl(levelQ, levelP, g[i], g[i])
 		for j := 0; j < alpha; j++ {
+
 			index := i*alpha + j
 
-			if index < levelQ+1 {
-				pq_hat.Div(pq_hat, ring.NewUint(ringQ.Modulus[index]))
-			} else {
-				pq_hat.Div(pq_hat, ring.NewUint(ringP.Modulus[index-levelQ-1]))
+			// It handles the case where nb pj does not divide nb qi
+			if index >= levelQ+1 {
+				break
+			}
+
+			qi := ringQ.Modulus[index]
+			p1tmp := g[i].Q.Coeffs[index]
+			p0tmp := keygen.poolQ.Coeffs[index]
+
+			for w := 0; w < ringQ.N; w++ {
+				p1tmp[w] = ring.CRed(p0tmp[w], qi)
 			}
 		}
-
-		ringQ.AddScalarBigint(g[i].Q, pq_hat, g[i].Q)
-		ringP.AddScalarBigint(g[i].P, pq_hat, g[i].P)
 	}
 
 	return keygen
@@ -232,4 +247,64 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	}
 
 	return
+}
+
+//For an input secretkey s, gen Ps + e
+func (keygen *KeyGenerator) GenSwitchingKey(skIn *ring.Poly, swk []rlwe.PolyQP) {
+	params := keygen.params
+	ringQ := params.RingQ()
+	ringQP := params.RingQP()
+	levelQ, levelP := params.QCount()-1, params.PCount()-1
+	alpha := levelP + 1
+	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+
+	var pBigInt *big.Int
+	if levelP == keygen.params.PCount()-1 {
+		pBigInt = keygen.params.RingP().ModulusBigint
+	} else {
+		P := keygen.params.RingP().Modulus
+		pBigInt = new(big.Int).SetUint64(P[0])
+		for i := 1; i < levelP+1; i++ {
+			pBigInt.Mul(pBigInt, ring.NewUint(P[i]))
+		}
+	}
+
+	// Computes P * skIn
+	ringQ.MulScalarBigintLvl(levelQ, skIn, pBigInt, keygen.poolQ)
+
+	var index int
+	for i := 0; i < beta; i++ {
+
+		// e
+		keygen.gaussianSamplerQ.ReadLvl(levelQ, swk[i].Q)
+		ringQP.ExtendBasisSmallNormAndCenter(swk[i].Q, levelP, nil, swk[i].P)
+		ringQP.NTTLazyLvl(levelQ, levelP, swk[i], swk[i])
+		ringQP.MFormLvl(levelQ, levelP, swk[i], swk[i])
+
+		// e + (skIn * P) * (q_star * q_tild) mod QP
+		//
+		// q_prod = prod(q[i*alpha+j])
+		// q_star = Q/qprod
+		// q_tild = q_star^-1 mod q_prod
+		//
+		// Therefore : (skIn * P) * (q_star * q_tild) = sk*P mod q[i*alpha+j], else 0
+		for j := 0; j < alpha; j++ {
+
+			index = i*alpha + j
+
+			// It handles the case where nb pj does not divide nb qi
+			if index >= levelQ+1 {
+				break
+			}
+
+			qi := ringQ.Modulus[index]
+			p0tmp := keygen.poolQ.Coeffs[index]
+			p1tmp := swk[i].Q.Coeffs[index]
+
+			for w := 0; w < ringQ.N; w++ {
+				p1tmp[w] = ring.CRed(p1tmp[w]+p0tmp[w], qi)
+			}
+		}
+
+	}
 }

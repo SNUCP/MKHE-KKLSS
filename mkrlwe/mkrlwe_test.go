@@ -32,9 +32,11 @@ func testString(params Parameters, opname string) string {
 
 func TestMKRLWE(t *testing.T) {
 	defaultParams := TestParams // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
-	if testing.Short() {
-		defaultParams = TestParams[:2] // the short test suite runs for ring degree N=2^12, 2^13
-	}
+	/*
+		  if testing.Short() {
+				defaultParams = TestParams[:2] // the short test suite runs for ring degree N=2^12, 2^13
+			}
+	*/
 
 	if *flagParamString != "" {
 		var jsonParams rlwe.ParametersLiteral
@@ -53,8 +55,10 @@ func TestMKRLWE(t *testing.T) {
 
 		testRelinKeyGen(kgen, t)
 		testGenKeyPair(kgen, t)
-		//testEncryptor(*kgen, t)
-		//testDecryptor(*kgen, t)
+		testEncryptor(kgen, t)
+		testDecryptor(kgen, t)
+		testSwitchKeyGen(kgen, t)
+		//testInternalProduct(kgen, t)
 	}
 
 }
@@ -237,7 +241,7 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 	})
 }
 
-func testEncryptor(kgen KeyGenerator, t *testing.T) {
+func testEncryptor(kgen *KeyGenerator, t *testing.T) {
 
 	params := kgen.params
 
@@ -279,7 +283,7 @@ func testEncryptor(kgen KeyGenerator, t *testing.T) {
 	})
 }
 
-func testDecryptor(kgen KeyGenerator, t *testing.T) {
+func testDecryptor(kgen *KeyGenerator, t *testing.T) {
 	params := kgen.params
 
 	var user1 string = "tetsUser1"
@@ -314,4 +318,61 @@ func testDecryptor(kgen KeyGenerator, t *testing.T) {
 		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
 		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
 	})
+}
+
+func testSwitchKeyGen(kgen *KeyGenerator, t *testing.T) {
+
+	// Checks that internal product works properly
+	// 1) generate two pk (-as+e, a)
+	// 2) generate sg
+	// 3) check Interal(-as+e, sg) similar to -as^2
+
+	params := kgen.params
+	t.Run(testString(params, "SWKGen/"), func(t *testing.T) {
+
+		id := "user"
+		ringQ := params.RingQ()
+		ringQP := params.RingQP()
+		sk := kgen.GenSecretKey(id)
+
+		levelQ, levelP := params.QCount()-1, params.PCount()-1
+		beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+
+		//generate sg
+		sg := make([]rlwe.PolyQP, beta)
+		for i := 0; i < beta; i++ {
+			sg[i] = ringQP.NewPoly()
+		}
+		kgen.GenSwitchingKey(sk.Value.Q, sg)
+
+		//tmp = P*s
+		var pBigInt *big.Int
+		if levelP == kgen.params.PCount()-1 {
+			pBigInt = kgen.params.RingP().ModulusBigint
+		} else {
+			P := kgen.params.RingP().Modulus
+			pBigInt = new(big.Int).SetUint64(P[0])
+			for i := 1; i < levelP+1; i++ {
+				pBigInt.Mul(pBigInt, ring.NewUint(P[i]))
+			}
+		}
+		tmp := ringQP.NewPoly()
+		ringQ.MulScalarBigint(sk.Value.Q, pBigInt, tmp.Q)
+
+		for i := 0; i < beta; i++ {
+			ringQP.SubLvl(levelQ, levelP, tmp, sg[i], tmp)
+		}
+
+		ringQP.InvNTTLvl(levelQ, levelP, tmp, tmp)
+		ringQP.InvMFormLvl(levelQ, levelP, tmp, tmp)
+
+		//check errors
+
+		for i := 0; i < beta; i++ {
+			log2Bound := bits.Len64(uint64(math.Floor(rlwe.DefaultSigma*6)) * uint64(params.N()*len(sg)))
+			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(tmp.Q.Level(), params.RingQ(), tmp.Q))
+			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(tmp.P.Level(), params.RingP(), tmp.P))
+		}
+	})
+
 }
