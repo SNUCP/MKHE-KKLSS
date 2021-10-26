@@ -28,7 +28,7 @@ type PublicKeySet struct {
 // RelinearizationKey is a type for generic RLWE public relinearization keys.
 // It consists of three polynomial vectors
 type RelinearizationKey struct {
-	Value [3]*PolyQPVector
+	Value [3][]rlwe.PolyQP
 	ID    string
 }
 
@@ -139,14 +139,23 @@ func NewPublicKey(params Parameters, id string) *PublicKey {
 
 // NewRelinearizationKey returns a new RelinearizationKey with zero values.
 func NewRelinearizationKey(params Parameters, levelQ, levelP int, id string) *RelinearizationKey {
-	decompSize := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
-	r := RingQP{*params.RingQP()}
+	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
 	rlk := new(RelinearizationKey)
+	rlk.Value[0] = make([]rlwe.PolyQP, beta)
+	rlk.Value[1] = make([]rlwe.PolyQP, beta)
+	rlk.Value[2] = make([]rlwe.PolyQP, beta)
 
-	rlk.Value[0] = r.NewPolyVector(decompSize)
-	rlk.Value[1] = r.NewPolyVector(decompSize)
-	rlk.Value[2] = r.NewPolyVector(decompSize)
+	ringQP := params.RingQP()
+
+	for i := 0; i < beta; i++ {
+		rlk.Value[0][i] = ringQP.NewPoly()
+		rlk.Value[1][i] = ringQP.NewPoly()
+		rlk.Value[2][i] = ringQP.NewPoly()
+
+	}
+
 	rlk.ID = id
+
 	return rlk
 }
 
@@ -183,10 +192,18 @@ func (rlk *RelinearizationKey) CopyNew() *RelinearizationKey {
 		return nil
 	}
 
+	beta := len(rlk.Value[0])
 	ret := new(RelinearizationKey)
-	ret.Value[0] = rlk.Value[0].CopyNew()
-	ret.Value[1] = rlk.Value[1].CopyNew()
-	ret.Value[2] = rlk.Value[2].CopyNew()
+
+	ret.Value[0] = make([]rlwe.PolyQP, beta)
+	ret.Value[1] = make([]rlwe.PolyQP, beta)
+	ret.Value[2] = make([]rlwe.PolyQP, beta)
+
+	for i := 0; i < beta; i++ {
+		ret.Value[0][i] = rlk.Value[0][i].CopyNew()
+		ret.Value[1][i] = rlk.Value[1][i].CopyNew()
+		ret.Value[2][i] = rlk.Value[2][i].CopyNew()
+	}
 	ret.ID = rlk.ID
 
 	return ret

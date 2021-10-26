@@ -51,10 +51,10 @@ func TestMKRLWE(t *testing.T) {
 		mkparams := NewParameters(params)
 		kgen := NewKeyGenerator(mkparams)
 
-		testGenKeyPair(kgen, t)
 		testRelinKeyGen(kgen, t)
-		testEncryptor(*kgen, t)
-		testDecryptor(*kgen, t)
+		testGenKeyPair(kgen, t)
+		//testEncryptor(*kgen, t)
+		//testDecryptor(*kgen, t)
 	}
 
 }
@@ -156,39 +156,65 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 
 		id := "user"
 
-		ringQP := RingQP{*params.RingQP()}
+		ringQ := params.RingQ()
+		ringP := params.RingP()
+		ringQP := params.RingQP()
 		sk := kgen.GenSecretKey(id)
+		r := kgen.GenSecretKey(id)
 		levelQ, levelP := params.QCount()-1, params.PCount()-1
 		beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+
+		tmp := kgen.poolQP
+		g := kgen.gadgetVector
+		a := params.CRS[0]
+		u := params.CRS[1]
+
 		// Generates RelinearizationKey
-		rlk, r := kgen.GenRelinearizationKey(sk)
-		tmp := ringQP.NewPolyVector(beta)
+		rlk := kgen.GenRelinearizationKey(sk, r)
 
 		// Decrypts
 		// b - sa
-		ringQP.MulPolyMontgomeryLvl(levelQ, levelP, params.CRS[0], &sk.Value, tmp)
-		ringQP.SubLvl(levelQ, levelP, rlk.Value[0], tmp, rlk.Value[0])
+		for i := 0; i < beta; i++ {
+			ringQ.MulCoeffsMontgomeryLvl(levelQ, a[i].Q, sk.Value.Q, tmp.Q)
+			ringP.MulCoeffsMontgomeryLvl(levelP, a[i].P, sk.Value.P, tmp.P)
+			ringQP.MFormLvl(levelQ, levelP, tmp, tmp)
+			ringQP.SubLvl(levelQ, levelP, rlk.Value[0][i], tmp, rlk.Value[0][i])
 
-		ringQP.InvNTTLvl(levelQ, levelP, rlk.Value[0], rlk.Value[0])
-		ringQP.InvMFormLvl(levelQ, levelP, rlk.Value[0], rlk.Value[0])
+			ringQP.InvNTTLvl(levelQ, levelP, rlk.Value[0][i], rlk.Value[0][i])
+			ringQP.InvMFormLvl(levelQ, levelP, rlk.Value[0][i], rlk.Value[0][i])
+		}
 
 		// d - ra - sg
-		ringQP.MulPolyMontgomeryLvl(levelQ, levelP, params.CRS[0], &r.Value, tmp)
-		ringQP.SubLvl(levelQ, levelP, rlk.Value[1], tmp, rlk.Value[1])
-		ringQP.MulPolyMontgomeryLvl(levelQ, levelP, kgen.gadgetVector, &sk.Value, tmp)
-		ringQP.SubLvl(levelQ, levelP, rlk.Value[1], tmp, rlk.Value[1])
+		for i := 0; i < beta; i++ {
+			ringQ.MulCoeffsMontgomeryLvl(levelQ, a[i].Q, r.Value.Q, tmp.Q)
+			ringP.MulCoeffsMontgomeryLvl(levelP, a[i].P, r.Value.P, tmp.P)
+			ringQP.MFormLvl(levelQ, levelP, tmp, tmp)
+			ringQP.SubLvl(levelQ, levelP, rlk.Value[1][i], tmp, rlk.Value[1][i])
 
-		ringQP.InvNTTLvl(levelQ, levelP, rlk.Value[1], rlk.Value[1])
-		ringQP.InvMFormLvl(levelQ, levelP, rlk.Value[1], rlk.Value[1])
+			ringQ.MulCoeffsMontgomeryLvl(levelQ, g[i].Q, sk.Value.Q, tmp.Q)
+			ringP.MulCoeffsMontgomeryLvl(levelP, g[i].P, sk.Value.P, tmp.P)
+			ringQP.MFormLvl(levelQ, levelP, tmp, tmp)
+			ringQP.SubLvl(levelQ, levelP, rlk.Value[1][i], tmp, rlk.Value[1][i])
+
+			ringQP.InvNTTLvl(levelQ, levelP, rlk.Value[1][i], rlk.Value[1][i])
+			ringQP.InvMFormLvl(levelQ, levelP, rlk.Value[1][i], rlk.Value[1][i])
+		}
 
 		// v - su - rg
-		ringQP.MulPolyMontgomeryLvl(levelQ, levelP, params.CRS[1], &sk.Value, tmp)
-		ringQP.SubLvl(levelQ, levelP, rlk.Value[2], tmp, rlk.Value[2])
-		ringQP.MulPolyMontgomeryLvl(levelQ, levelP, kgen.gadgetVector, &r.Value, tmp)
-		ringQP.SubLvl(levelQ, levelP, rlk.Value[2], tmp, rlk.Value[2])
+		for i := 0; i < beta; i++ {
+			ringQ.MulCoeffsMontgomeryLvl(levelQ, u[i].Q, sk.Value.Q, tmp.Q)
+			ringP.MulCoeffsMontgomeryLvl(levelP, u[i].P, sk.Value.P, tmp.P)
+			ringQP.MFormLvl(levelQ, levelP, tmp, tmp)
+			ringQP.SubLvl(levelQ, levelP, rlk.Value[2][i], tmp, rlk.Value[2][i])
 
-		ringQP.InvNTTLvl(levelQ, levelP, rlk.Value[2], rlk.Value[2])
-		ringQP.InvMFormLvl(levelQ, levelP, rlk.Value[2], rlk.Value[2])
+			ringQ.MulCoeffsMontgomeryLvl(levelQ, g[i].Q, r.Value.Q, tmp.Q)
+			ringP.MulCoeffsMontgomeryLvl(levelP, g[i].P, r.Value.P, tmp.P)
+			ringQP.MFormLvl(levelQ, levelP, tmp, tmp)
+			ringQP.SubLvl(levelQ, levelP, rlk.Value[2][i], tmp, rlk.Value[2][i])
+
+			ringQP.InvNTTLvl(levelQ, levelP, rlk.Value[2][i], rlk.Value[2][i])
+			ringQP.InvMFormLvl(levelQ, levelP, rlk.Value[2][i], rlk.Value[2][i])
+		}
 
 		// Checks that the error is below the bound
 		// Worst error bound is N * floor(6*sigma) * #Keys
@@ -197,14 +223,14 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 
 			log2Bound := bits.Len64(uint64(math.Floor(rlwe.DefaultSigma*6)) * uint64(params.N()))
 
-			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[0].Value[j].Q.Level(), params.RingQ(), rlk.Value[0].Value[j].Q))
-			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[0].Value[j].P.Level(), params.RingP(), rlk.Value[0].Value[j].P))
+			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[0][j].Q.Level(), params.RingQ(), rlk.Value[0][j].Q))
+			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[0][j].P.Level(), params.RingP(), rlk.Value[0][j].P))
 
-			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[1].Value[j].Q.Level(), params.RingQ(), rlk.Value[1].Value[j].Q))
-			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[1].Value[j].P.Level(), params.RingP(), rlk.Value[1].Value[j].P))
+			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[1][j].Q.Level(), params.RingQ(), rlk.Value[1][j].Q))
+			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[1][j].P.Level(), params.RingP(), rlk.Value[1][j].P))
 
-			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[2].Value[j].Q.Level(), params.RingQ(), rlk.Value[2].Value[j].Q))
-			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[2].Value[j].P.Level(), params.RingP(), rlk.Value[2].Value[j].P))
+			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[2][j].Q.Level(), params.RingQ(), rlk.Value[2][j].Q))
+			require.GreaterOrEqual(t, log2Bound, log2OfInnerSum(rlk.Value[2][j].P.Level(), params.RingP(), rlk.Value[2][j].P))
 
 		}
 
