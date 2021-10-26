@@ -383,7 +383,7 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 
 	params := kgen.params
 
-	t.Run(testString(params, "InternalProduct/"), func(t *testing.T) {
+	t.Run(testString(params, "InternalProductMaxLevel/"), func(t *testing.T) {
 
 		if params.PCount() == 0 {
 			t.Skip()
@@ -421,6 +421,46 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 
 		//check errors
 
+		require.GreaterOrEqual(t, 10+params.LogN(), log2OfInnerSum(tmp.Level(), params.RingQ(), tmp))
+	})
+
+	t.Run(testString(params, "InternalProductMinLevel/"), func(t *testing.T) {
+
+		if params.PCount() == 0 {
+			t.Skip()
+		}
+
+		var id string = "tetsUser1"
+		var idList []string = []string{id}
+		ringQ := params.RingQ()
+		ringQP := params.RingQP()
+		sk := kgen.GenSecretKey(id)
+		pk := kgen.GenPublicKey(sk)
+		plaintext := Plaintext{*rlwe.NewPlaintext(params.Parameters, 0)}
+		plaintext.Value.IsNTT = true
+		encryptor := NewEncryptor(params, pk)
+		ciphertext := NewCiphertextNTT(params, idList, plaintext.Level())
+		encryptor.Encrypt(&plaintext, ciphertext)
+		levelQ, levelP := params.QCount()-1, params.PCount()-1
+		beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+
+		//generate sg
+		sg := make([]rlwe.PolyQP, beta)
+		for i := 0; i < beta; i++ {
+			sg[i] = ringQP.NewPoly()
+		}
+		kgen.GenSwitchingKey(sk.Value.Q, sg)
+
+		//tmp = P*s
+		ks := NewKeySwitcher(params)
+		tmp := ringQ.NewPolyLvl(ciphertext.Level())
+		ks.InternalProduct(ciphertext.Level(), ciphertext.Value0, sg, tmp)
+
+		//tmp2 = c*s
+		ringQ.MulCoeffsMontgomeryAndSubLvl(ciphertext.Level(), ciphertext.Value0, sk.Value.Q, tmp)
+		ringQ.InvNTTLvl(ciphertext.Level(), tmp, tmp)
+
+		//check errors
 		require.GreaterOrEqual(t, 10+params.LogN(), log2OfInnerSum(tmp.Level(), params.RingQ(), tmp))
 	})
 }
