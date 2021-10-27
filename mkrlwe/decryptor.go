@@ -1,6 +1,7 @@
 package mkrlwe
 
 import "github.com/ldsec/lattigo/v2/ring"
+import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/utils"
 
 // decryptor is a structure used to decrypt ciphertext. It stores the secret-key.
@@ -39,7 +40,7 @@ func (decryptor *Decryptor) PartialDecrypt(ct *Ciphertext, sk *SecretKey) {
 // Decrypt decrypts the ciphertext with given secretkey set and write the result in ptOut.
 // The level of the output plaintext is min(ciphertext.Level(), plaintext.Level())
 // Output domain will match plaintext.Value.IsNTT value.
-func (decryptor *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *SecretKeySet, plaintext *Plaintext) {
+func (decryptor *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *SecretKeySet, plaintext *rlwe.Plaintext) {
 	ringQ := decryptor.ringQ
 	level := utils.MinInt(ciphertext.Level(), plaintext.Level())
 	plaintext.Value.Coeffs = plaintext.Value.Coeffs[:level+1]

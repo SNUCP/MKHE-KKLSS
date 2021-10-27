@@ -18,7 +18,6 @@ type KeyGenerator struct {
 	gaussianSamplerQ *ring.GaussianSampler
 	uniformSamplerQ  *ring.UniformSampler
 	uniformSamplerP  *ring.UniformSampler
-	gadgetVector     *PolyQPVector
 }
 
 // NewKeyGenerator creates a new KeyGenerator, from which the secret and public keys, as well as the evaluation,
@@ -37,35 +36,6 @@ func NewKeyGenerator(params *Parameters) *KeyGenerator {
 	keygen.gaussianSamplerQ = ring.NewGaussianSampler(prng, params.RingQ(), params.Sigma(), int(6*params.Sigma()))
 	keygen.uniformSamplerQ = ring.NewUniformSampler(prng, params.RingQ())
 	keygen.uniformSamplerP = ring.NewUniformSampler(prng, params.RingP())
-
-	ringP := keygen.params.RingP()
-	ringQ := keygen.params.RingQ()
-	ringQP := RingQP{*params.RingQP()}
-	levelQ, levelP := params.QCount()-1, params.PCount()-1
-
-	alpha := levelP + 1
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
-	keygen.gadgetVector = ringQP.NewPolyVector(beta)
-
-	//generate gadget vector
-	g := keygen.gadgetVector
-	for i := 0; i < beta; i++ {
-		//compute pq_hat_i
-		pq_hat := new(big.Int).Set(ringQ.ModulusBigint)
-		pq_hat.Mul(pq_hat, ringP.ModulusBigint)
-		for j := 0; j < alpha; j++ {
-			index := i*alpha + j
-
-			if index < levelQ+1 {
-				pq_hat.Div(pq_hat, ring.NewUint(ringQ.Modulus[index]))
-			} else {
-				pq_hat.Div(pq_hat, ring.NewUint(ringP.Modulus[index-levelQ-1]))
-			}
-		}
-
-		ringQ.AddScalarBigint(g.Value[i].Q, pq_hat, g.Value[i].Q)
-		ringP.AddScalarBigint(g.Value[i].P, pq_hat, g.Value[i].P)
-	}
 
 	return keygen
 }
@@ -150,68 +120,126 @@ func (keygen *KeyGenerator) GenKeyPairSparse(hw int) (sk *SecretKey, pk *PublicK
 	return sk, keygen.GenPublicKey(sk)
 }
 
-func (keygen *KeyGenerator) genGaussianSampleVector(e *PolyQPVector) {
+func (keygen *KeyGenerator) genGaussianError(e rlwe.PolyQP) {
 
 	levelQ := keygen.params.QCount() - 1
 	levelP := keygen.params.PCount() - 1
 	ringQP := keygen.params.RingQP()
 
-	for i := 0; i < e.Dim(); i++ {
-		keygen.gaussianSamplerQ.ReadLvl(levelQ, e.Value[i].Q)
-		ringQP.ExtendBasisSmallNormAndCenter(e.Value[i].Q, levelP, nil, e.Value[i].P)
-		ringQP.NTTLvl(levelQ, levelP, e.Value[i], e.Value[i])
-	}
+	keygen.gaussianSamplerQ.ReadLvl(levelQ, e.Q)
+	ringQP.ExtendBasisSmallNormAndCenter(e.Q, levelP, nil, e.P)
+	ringQP.NTTLvl(levelQ, levelP, e, e)
 
 }
 
 // GenRelinKey generates a new EvaluationKey that will be used to relinearize Ciphertexts during multiplication.
-// RelinearizationKeys are triplet of polyvector in MontgomeryForm
-func (keygen *KeyGenerator) GenRelinearizationKey(sk *SecretKey) (rlk *RelinearizationKey, r *SecretKey) {
+// RelinearizationKeys are triplet of polyvector in  MontgomeryForm
+func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *RelinearizationKey) {
 
 	if keygen.params.PCount() == 0 {
 		panic("modulus P is empty")
 	}
-	levelQ := keygen.params.QCount() - 1
-	levelP := keygen.params.PCount() - 1
-	ringQP := RingQP{*keygen.params.RingQP()}
+	params := keygen.params
+	levelQ := params.QCount() - 1
+	levelP := params.PCount() - 1
+	ringQP := params.RingQP()
 
 	id := sk.ID
 
 	//rlk = (b, d, v)
-	rlk = NewRelinearizationKey(keygen.params, levelQ, levelP, id)
+	rlk = NewRelinearizationKey(keygen.params, id)
 	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
 
-	//generate temporary random vector r
-	r = keygen.GenSecretKey(sk.ID)
+	//set CRS
+	a := keygen.params.CRS[0]
+	u := keygen.params.CRS[1]
 
-	//temporary vector
-	tmp := ringQP.NewPolyVector(beta)
-
-	//set gadget vector g
-	g := keygen.gadgetVector
+	tmp := keygen.poolQP
 
 	//generate vector b = sa + e in MForm
-	e := ringQP.NewPolyVector(beta)
-	keygen.genGaussianSampleVector(e)
-	ringQP.MulPolyMontgomeryLvl(levelQ, levelP, keygen.params.CRS[0], &sk.Value, rlk.Value[0])
-	ringQP.AddLvl(levelQ, levelP, e, rlk.Value[0], rlk.Value[0])
-	ringQP.MFormLvl(levelQ, levelP, rlk.Value[0], rlk.Value[0])
+	b := rlk.Value[0]
+	for i := 0; i < beta; i++ {
+		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a[i], sk.Value, b.Value[i])
+		keygen.genGaussianError(tmp)
+		ringQP.AddLvl(levelQ, levelP, tmp, b.Value[i], b.Value[i])
+		ringQP.MFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
+	}
 
 	//generate vector d = ra + sg + e in MForm
-	ringQP.MulPolyMontgomeryLvl(levelQ, levelP, keygen.params.CRS[0], &r.Value, rlk.Value[1])
-	ringQP.MulPolyMontgomeryLvl(levelQ, levelP, g, &sk.Value, tmp)
-	ringQP.AddLvl(levelQ, levelP, tmp, rlk.Value[1], rlk.Value[1])
-	keygen.genGaussianSampleVector(e)
-	ringQP.AddLvl(levelQ, levelP, e, rlk.Value[1], rlk.Value[1])
-	ringQP.MFormLvl(levelQ, levelP, rlk.Value[1], rlk.Value[1])
+	d := rlk.Value[1]
+	keygen.GenSwitchingKey(sk, d)
+	for i := 0; i < beta; i++ {
+		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a[i], r.Value, d.Value[i])
+		ringQP.MFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
+	}
 
 	//generate vector v = su + rg + e in MForm
-	ringQP.MulPolyMontgomeryLvl(levelQ, levelP, keygen.params.CRS[1], &sk.Value, rlk.Value[2])
-	ringQP.MulPolyMontgomeryLvl(levelQ, levelP, g, &r.Value, tmp)
-	ringQP.AddLvl(levelQ, levelP, tmp, rlk.Value[2], rlk.Value[2])
-	keygen.genGaussianSampleVector(e)
-	ringQP.AddLvl(levelQ, levelP, e, rlk.Value[2], rlk.Value[2])
-	ringQP.MFormLvl(levelQ, levelP, rlk.Value[2], rlk.Value[2])
-
+	v := rlk.Value[2]
+	keygen.GenSwitchingKey(r, v)
+	for i := 0; i < beta; i++ {
+		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u[i], sk.Value, v.Value[i])
+		ringQP.MFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
+	}
 	return
+}
+
+//For an input secretkey s, gen gs + e in MForm
+func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) {
+	params := keygen.params
+	ringQ := params.RingQ()
+	ringQP := params.RingQP()
+	levelQ, levelP := params.QCount()-1, params.PCount()-1
+	alpha := levelP + 1
+	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+
+	var pBigInt *big.Int
+	if levelP == keygen.params.PCount()-1 {
+		pBigInt = keygen.params.RingP().ModulusBigint
+	} else {
+		P := keygen.params.RingP().Modulus
+		pBigInt = new(big.Int).SetUint64(P[0])
+		for i := 1; i < levelP+1; i++ {
+			pBigInt.Mul(pBigInt, ring.NewUint(P[i]))
+		}
+	}
+
+	// Computes P * skIn
+	ringQ.MulScalarBigintLvl(levelQ, skIn.Value.Q, pBigInt, keygen.poolQ)
+	ringQ.InvMFormLvl(levelQ, keygen.poolQ, keygen.poolQ)
+
+	var index int
+	for i := 0; i < beta; i++ {
+
+		// e
+		keygen.gaussianSamplerQ.ReadLvl(levelQ, swk.Value[i].Q)
+		ringQP.ExtendBasisSmallNormAndCenter(swk.Value[i].Q, levelP, nil, swk.Value[i].P)
+		ringQP.NTTLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
+		//ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
+
+		// e + (skIn * P) * (q_star * q_tild) mod QP
+		//
+		// q_prod = prod(q[i*alpha+j])
+		// q_star = Q/qprod
+		// q_tild = q_star^-1 mod q_prod
+		//
+		// Therefore : (skIn * P) * (q_star * q_tild) = sk*P mod q[i*alpha+j], else 0
+		for j := 0; j < alpha; j++ {
+
+			index = i*alpha + j
+
+			// It handles the case where nb pj does not divide nb qi
+			if index >= levelQ+1 {
+				break
+			}
+
+			qi := ringQ.Modulus[index]
+			p0tmp := keygen.poolQ.Coeffs[index]
+			p1tmp := swk.Value[i].Q.Coeffs[index]
+
+			for w := 0; w < ringQ.N; w++ {
+				p1tmp[w] = ring.CRed(p1tmp[w]+p0tmp[w], qi)
+			}
+		}
+
+	}
 }
