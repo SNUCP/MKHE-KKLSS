@@ -20,6 +20,12 @@ type PublicKey struct {
 	ID string
 }
 
+// SwitchingKey is a type for generic RLWE switching keys.
+type SwitchingKey struct {
+	Value []rlwe.PolyQP
+	ID    string
+}
+
 // PublicKeySet is a type for a set of multikey RLWE public keys.
 type PublicKeySet struct {
 	Value map[string]*PublicKey
@@ -28,7 +34,7 @@ type PublicKeySet struct {
 // RelinearizationKey is a type for generic RLWE public relinearization keys.
 // It consists of three polynomial vectors
 type RelinearizationKey struct {
-	Value [3][]rlwe.PolyQP
+	Value [3]*SwitchingKey
 	ID    string
 }
 
@@ -137,22 +143,28 @@ func NewPublicKey(params Parameters, id string) *PublicKey {
 	return pk
 }
 
-// NewRelinearizationKey returns a new RelinearizationKey with zero values.
-func NewRelinearizationKey(params Parameters, levelQ, levelP int, id string) *RelinearizationKey {
+//
+func NewSwitchingKey(params Parameters, id string) *SwitchingKey {
+	levelQ, levelP := params.QCount()-1, params.PCount()-1
 	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
-	rlk := new(RelinearizationKey)
-	rlk.Value[0] = make([]rlwe.PolyQP, beta)
-	rlk.Value[1] = make([]rlwe.PolyQP, beta)
-	rlk.Value[2] = make([]rlwe.PolyQP, beta)
-
 	ringQP := params.RingQP()
-
+	swk := new(SwitchingKey)
+	swk.Value = make([]rlwe.PolyQP, beta)
 	for i := 0; i < beta; i++ {
-		rlk.Value[0][i] = ringQP.NewPoly()
-		rlk.Value[1][i] = ringQP.NewPoly()
-		rlk.Value[2][i] = ringQP.NewPoly()
-
+		swk.Value[i] = ringQP.NewPoly()
 	}
+
+	swk.ID = id
+
+	return swk
+}
+
+// NewRelinearizationKey returns a new RelinearizationKey with zero values.
+func NewRelinearizationKey(params Parameters, id string) *RelinearizationKey {
+	rlk := new(RelinearizationKey)
+	rlk.Value[0] = NewSwitchingKey(params, id)
+	rlk.Value[1] = NewSwitchingKey(params, id)
+	rlk.Value[2] = NewSwitchingKey(params, id)
 
 	rlk.ID = id
 
@@ -182,29 +194,6 @@ func (pk *PublicKey) CopyNew() *PublicKey {
 	ret.Value[0] = pk.Value[0].CopyNew()
 	ret.Value[1] = pk.Value[1].CopyNew()
 	ret.ID = pk.ID
-
-	return ret
-}
-
-// CopyNew creates a deep copy of the receiver RelinearizationKey and returns it.
-func (rlk *RelinearizationKey) CopyNew() *RelinearizationKey {
-	if rlk == nil {
-		return nil
-	}
-
-	beta := len(rlk.Value[0])
-	ret := new(RelinearizationKey)
-
-	ret.Value[0] = make([]rlwe.PolyQP, beta)
-	ret.Value[1] = make([]rlwe.PolyQP, beta)
-	ret.Value[2] = make([]rlwe.PolyQP, beta)
-
-	for i := 0; i < beta; i++ {
-		ret.Value[0][i] = rlk.Value[0][i].CopyNew()
-		ret.Value[1][i] = rlk.Value[1][i].CopyNew()
-		ret.Value[2][i] = rlk.Value[2][i].CopyNew()
-	}
-	ret.ID = rlk.ID
 
 	return ret
 }
