@@ -133,7 +133,7 @@ func (keygen *KeyGenerator) genGaussianError(e rlwe.PolyQP) {
 }
 
 // GenRelinKey generates a new EvaluationKey that will be used to relinearize Ciphertexts during multiplication.
-// RelinearizationKeys are triplet of polyvector in MontgomeryForm
+// RelinearizationKeys are triplet of polyvector in  MontgomeryForm
 func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *RelinearizationKey) {
 
 	if keygen.params.PCount() == 0 {
@@ -142,8 +142,6 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	params := keygen.params
 	levelQ := params.QCount() - 1
 	levelP := params.PCount() - 1
-	ringQ := params.RingQ()
-	ringP := params.RingP()
 	ringQP := params.RingQP()
 
 	id := sk.ID
@@ -161,9 +159,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	//generate vector b = sa + e in MForm
 	b := rlk.Value[0]
 	for i := 0; i < beta; i++ {
-		ringQ.MulCoeffsMontgomeryLvl(levelQ, a[i].Q, sk.Value.Q, b.Value[i].Q)
-		ringP.MulCoeffsMontgomeryLvl(levelP, a[i].P, sk.Value.P, b.Value[i].P)
-
+		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a[i], sk.Value, b.Value[i])
 		keygen.genGaussianError(tmp)
 		ringQP.AddLvl(levelQ, levelP, tmp, b.Value[i], b.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
@@ -173,7 +169,6 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	d := rlk.Value[1]
 	keygen.GenSwitchingKey(sk, d)
 	for i := 0; i < beta; i++ {
-		ringQP.InvMFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
 		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a[i], r.Value, d.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
 	}
@@ -182,7 +177,6 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	v := rlk.Value[2]
 	keygen.GenSwitchingKey(r, v)
 	for i := 0; i < beta; i++ {
-		ringQP.InvMFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
 		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u[i], sk.Value, v.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
 	}
@@ -211,6 +205,7 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 
 	// Computes P * skIn
 	ringQ.MulScalarBigintLvl(levelQ, skIn.Value.Q, pBigInt, keygen.poolQ)
+	ringQ.InvMFormLvl(levelQ, keygen.poolQ, keygen.poolQ)
 
 	var index int
 	for i := 0; i < beta; i++ {
@@ -218,8 +213,8 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 		// e
 		keygen.gaussianSamplerQ.ReadLvl(levelQ, swk.Value[i].Q)
 		ringQP.ExtendBasisSmallNormAndCenter(swk.Value[i].Q, levelP, nil, swk.Value[i].P)
-		ringQP.NTTLazyLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
-		ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
+		ringQP.NTTLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
+		//ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
 
 		// e + (skIn * P) * (q_star * q_tild) mod QP
 		//
