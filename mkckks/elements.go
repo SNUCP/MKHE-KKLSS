@@ -10,7 +10,7 @@ type Ciphertext struct {
 // NewCiphertext returns a new Element with zero values
 func NewCiphertext(params Parameters, idset []string, level int) *Ciphertext {
 	el := new(Ciphertext)
-	el.Ciphertext = mkrlwe.NewCiphertext(params.Parameters, idset, level)
+	el.Ciphertext = mkrlwe.NewCiphertextNTT(params.Parameters, idset, level)
 	el.Scale = params.scale
 
 	return el
