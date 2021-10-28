@@ -143,6 +143,8 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	levelQ := params.QCount() - 1
 	levelP := params.PCount() - 1
 	ringQP := params.RingQP()
+	ringQ := params.RingQ()
+	ringP := params.RingP()
 
 	id := sk.ID
 
@@ -156,28 +158,30 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 
 	tmp := keygen.poolQP
 
-	//generate vector b = sa + e in MForm
+	//generate vector b = -sa + e in MForm
 	b := rlk.Value[0]
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a[i], sk.Value, b.Value[i])
 		keygen.genGaussianError(tmp)
-		ringQP.AddLvl(levelQ, levelP, tmp, b.Value[i], b.Value[i])
+		ringQP.SubLvl(levelQ, levelP, tmp, b.Value[i], b.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
 	}
 
-	//generate vector d = ra + sg + e in MForm
+	//generate vector d = -ra + sg + e in MForm
 	d := rlk.Value[1]
 	keygen.GenSwitchingKey(sk, d)
 	for i := 0; i < beta; i++ {
-		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a[i], r.Value, d.Value[i])
+		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a[i], r.Value, d.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
 	}
 
-	//generate vector v = su + rg + e in MForm
+	//generate vector v = -su - rg + e in MForm
 	v := rlk.Value[2]
 	keygen.GenSwitchingKey(r, v)
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u[i], sk.Value, v.Value[i])
+		ringQ.NegLvl(levelQ, v.Value[i].Q, v.Value[i].Q)
+		ringP.NegLvl(levelP, v.Value[i].P, v.Value[i].P)
 		ringQP.MFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
 	}
 	return

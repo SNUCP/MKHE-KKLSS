@@ -278,7 +278,7 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
 
 		a := params.CRS[0]
-		//u := params.CRS[1]
+		u := params.CRS[1]
 
 		//generate sg, rg
 		sg := NewSwitchingKey(params, id)
@@ -290,29 +290,42 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		//gen rlk
 		rlk := kgen.GenRelinearizationKey(s, r)
 
-		//check b=sa+e
+		//check b=-sa+e
 		b := rlk.Value[0]
 		for i := 0; i < beta; i++ {
 			ringQP.InvMFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
 
-			ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a[i], s.Value, b.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a[i], s.Value, b.Value[i])
 			ringQP.InvNTTLvl(levelQ, levelP, b.Value[i], b.Value[i])
 
 			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelQ, ringQ, b.Value[i].Q))
 			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelP, ringP, b.Value[i].P))
 		}
 
-		//check d = ra + sg + e
+		//check d = -ra + sg + e
 		d := rlk.Value[1]
 		for i := 0; i < beta; i++ {
 			ringQP.InvMFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
 
-			ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a[i], r.Value, d.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a[i], r.Value, d.Value[i])
 			ringQP.SubLvl(levelQ, levelP, d.Value[i], sg.Value[i], d.Value[i])
 			ringQP.InvNTTLvl(levelQ, levelP, d.Value[i], d.Value[i])
 
 			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelQ, ringQ, d.Value[i].Q))
 			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelP, ringP, d.Value[i].P))
+		}
+
+		//check v = -su -rg + e
+		v := rlk.Value[2]
+		for i := 0; i < beta; i++ {
+			ringQP.InvMFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
+
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u[i], s.Value, v.Value[i])
+			ringQP.AddLvl(levelQ, levelP, v.Value[i], rg.Value[i], v.Value[i])
+			ringQP.InvNTTLvl(levelQ, levelP, v.Value[i], v.Value[i])
+
+			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelQ, ringQ, v.Value[i].Q))
+			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelP, ringP, v.Value[i].P))
 		}
 
 	})

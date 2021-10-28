@@ -50,7 +50,7 @@ func (decryptor *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *SecretKeySet,
 		decryptor.PartialDecrypt(ctTmp, sk)
 	}
 
-	if ctTmp.NumID() > 0 {
+	if ctTmp.NumIDs() > 0 {
 		panic("Cannot Decrypt: there is a missing secretkey")
 	}
 
