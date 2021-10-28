@@ -22,7 +22,7 @@ type KeyGenerator struct {
 
 // NewKeyGenerator creates a new KeyGenerator, from which the secret and public keys, as well as the evaluation,
 // rotation and switching keys can be generated.
-func NewKeyGenerator(params *Parameters) *KeyGenerator {
+func NewKeyGenerator(params Parameters) *KeyGenerator {
 
 	prng, err := utils.NewPRNG()
 	if err != nil {
@@ -30,7 +30,7 @@ func NewKeyGenerator(params *Parameters) *KeyGenerator {
 	}
 
 	keygen := new(KeyGenerator)
-	keygen.params = *params
+	keygen.params = params
 	keygen.poolQ = params.RingQ().NewPoly()
 	keygen.poolQP = params.RingQP().NewPoly()
 	keygen.gaussianSamplerQ = ring.NewGaussianSampler(prng, params.RingQ(), params.Sigma(), int(6*params.Sigma()))

@@ -120,6 +120,6 @@ func (encryptor *Encryptor) Encrypt(plaintext *rlwe.Plaintext, ctOut *Ciphertext
 
 // NewEncryptor instatiates a new generic RLWE Encryptor. The key argument can
 // be either a *rlwe.PublicKey or a *rlwe.SecretKey.
-func NewEncryptor(params Parameters, key *PublicKey) *Encryptor {
-	return &Encryptor{newEncryptorBase(params), key}
+func NewEncryptor(params Parameters, pk *PublicKey) *Encryptor {
+	return &Encryptor{newEncryptorBase(params), pk}
 }

@@ -14,12 +14,27 @@ type Parameters struct {
 
 // NewParameters instantiate a set of MKCKKS parameters from the generic CKKS parameters and the CKKS-specific ones.
 // It returns the empty parameters Parameters{} and a non-nil error if the specified parameters are invalid.
-func NewParameters(ckksParams ckks.Parameters) *Parameters {
+func NewParameters(ckksParams ckks.Parameters) Parameters {
 
 	ret := new(Parameters)
-	ret.Parameters = *mkrlwe.NewParameters(ckksParams.Parameters)
+	ret.Parameters = mkrlwe.NewParameters(ckksParams.Parameters)
 	ret.logSlots = ckksParams.LogSlots()
 	ret.scale = ckksParams.Scale()
 
-	return ret
+	return *ret
+}
+
+// Scale returns the default plaintext/ciphertext scale
+func (p Parameters) Scale() float64 {
+	return p.scale
+}
+
+// Slots returns number of available plaintext slots
+func (p Parameters) Slots() int {
+	return 1 << p.logSlots
+}
+
+// LogSlots returns the log of the number of slots
+func (p Parameters) LogSlots() int {
+	return p.logSlots
 }

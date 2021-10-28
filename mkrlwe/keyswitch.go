@@ -7,13 +7,13 @@ import "math"
 // KeySwitcher is a struct for RLWE key-switching.
 type MKKeySwitcher struct {
 	rlwe.KeySwitcher
-	*Parameters
+	Parameters
 }
 
 func NewKeySwitcher(params Parameters) *MKKeySwitcher {
 	ks := new(MKKeySwitcher)
 	ks.KeySwitcher = *rlwe.NewKeySwitcher(params.Parameters)
-	ks.Parameters = &params
+	ks.Parameters = params
 	return ks
 }
 

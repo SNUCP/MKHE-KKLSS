@@ -12,7 +12,7 @@ type Parameters struct {
 
 // NewParameters takes rlwe Parameter as input, generate two CRSs
 // and then return mkrlwe parameter
-func NewParameters(params rlwe.Parameters) *Parameters {
+func NewParameters(params rlwe.Parameters) Parameters {
 	ret := new(Parameters)
 	ret.Parameters = params
 	ringQP := params.RingQP()
@@ -38,5 +38,5 @@ func NewParameters(params rlwe.Parameters) *Parameters {
 		uniformSamplerQ.Read(ret.CRS[1][i].Q)
 		uniformSamplerP.Read(ret.CRS[1][i].P)
 	}
-	return ret
+	return *ret
 }
