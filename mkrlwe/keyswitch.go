@@ -5,22 +5,50 @@ import "github.com/ldsec/lattigo/v2/ring"
 import "math"
 
 // KeySwitcher is a struct for RLWE key-switching.
-type MKKeySwitcher struct {
+type KeySwitcher struct {
 	rlwe.KeySwitcher
 	Parameters
 }
 
-func NewKeySwitcher(params Parameters) *MKKeySwitcher {
-	ks := new(MKKeySwitcher)
+func NewKeySwitcher(params Parameters) *KeySwitcher {
+	ks := new(KeySwitcher)
 	ks.KeySwitcher = *rlwe.NewKeySwitcher(params.Parameters)
 	ks.Parameters = params
 	return ks
 }
 
+func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly) (ad *SwitchingKey) {
+
+	params := ks.Parameters
+	ringQ := params.RingQ()
+
+	ad = NewSwitchingKey(params)
+
+	var aNTT, aInvNTT *ring.Poly
+	if a.IsNTT {
+		aNTT = a
+		aInvNTT = ks.PoolInvNTT
+		ringQ.InvNTTLvl(levelQ, aNTT, aInvNTT)
+	} else {
+		panic("Cannot InternalProduct: a should be in NTT")
+	}
+
+	alpha := params.PCount()
+	levelP := alpha - 1
+	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+
+	// Key switching with CRT decomposition for the Qi
+	for i := 0; i < beta; i++ {
+		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, aNTT, aInvNTT, ad.Value[i].Q, ad.Value[i].P)
+	}
+
+	return
+}
+
 // InternalProduct applies internal product of input poly a & bg
 // the expected result is ab
 // we assume one of a and bg is in MForm
-func (ks *MKKeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKey, c *ring.Poly) {
+func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKey, c *ring.Poly) {
 	params := ks.Parameters
 	ringQ := params.RingQ()
 	ringP := params.RingP()
