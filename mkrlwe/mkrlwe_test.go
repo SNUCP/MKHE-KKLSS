@@ -511,7 +511,8 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 
 		//generate cd
 		ks := NewKeySwitcher(params)
-		cd := ks.Decompose(ciphertext.Level(), ciphertext.Value["0"])
+		cd := NewSwitchingKey(params)
+		ks.Decompose(ciphertext.Level(), ciphertext.Value["0"], cd)
 
 		//internal product on tmp
 		tmp := ringQP.NewPolyLvl(ciphertext.Level(), levelP)
@@ -562,7 +563,8 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 
 		//generate cd
 		ks := NewKeySwitcher(params)
-		cd := ks.Decompose(ciphertext.Level(), ciphertext.Value["0"])
+		cd := NewSwitchingKey(params)
+		ks.Decompose(ciphertext.Level(), ciphertext.Value["0"], cd)
 
 		//internal product on tmp
 		tmp := ringQP.NewPolyLvl(ciphertext.Level(), levelP)

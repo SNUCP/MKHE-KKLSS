@@ -17,12 +17,10 @@ func NewKeySwitcher(params Parameters) *KeySwitcher {
 	return ks
 }
 
-func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly) (ad *SwitchingKey) {
+func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly, ad *SwitchingKey) {
 
 	params := ks.Parameters
 	ringQ := params.RingQ()
-
-	ad = NewSwitchingKey(params)
 
 	var aNTT, aInvNTT *ring.Poly
 	if a.IsNTT {
