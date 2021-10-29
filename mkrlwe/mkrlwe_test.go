@@ -298,7 +298,7 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		for i := 0; i < beta; i++ {
 			ringQP.InvMFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
 
-			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a[i], s.Value, b.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a.Value[i], s.Value, b.Value[i])
 			ringQP.InvNTTLvl(levelQ, levelP, b.Value[i], b.Value[i])
 
 			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelQ, ringQ, b.Value[i].Q))
@@ -310,7 +310,7 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		for i := 0; i < beta; i++ {
 			ringQP.InvMFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
 
-			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a[i], r.Value, d.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a.Value[i], r.Value, d.Value[i])
 			ringQP.SubLvl(levelQ, levelP, d.Value[i], sg.Value[i], d.Value[i])
 			ringQP.InvNTTLvl(levelQ, levelP, d.Value[i], d.Value[i])
 
@@ -323,7 +323,7 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		for i := 0; i < beta; i++ {
 			ringQP.InvMFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
 
-			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u[i], s.Value, v.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u.Value[i], s.Value, v.Value[i])
 			ringQP.AddLvl(levelQ, levelP, v.Value[i], rg.Value[i], v.Value[i])
 			ringQP.InvNTTLvl(levelQ, levelP, v.Value[i], v.Value[i])
 

@@ -7,7 +7,7 @@ import "math"
 
 type Parameters struct {
 	rlwe.Parameters
-	CRS [2][]rlwe.PolyQP
+	CRS [2]*SwitchingKey
 }
 
 // NewParameters takes rlwe Parameter as input, generate two CRSs
@@ -26,17 +26,20 @@ func NewParameters(params rlwe.Parameters) Parameters {
 	uniformSamplerQ := ring.NewUniformSampler(prng, params.RingQ())
 	uniformSamplerP := ring.NewUniformSampler(prng, params.RingP())
 
-	ret.CRS[0] = make([]rlwe.PolyQP, beta)
-	ret.CRS[1] = make([]rlwe.PolyQP, beta)
+	ret.CRS[0] = new(SwitchingKey)
+	ret.CRS[1] = new(SwitchingKey)
+
+	ret.CRS[0].Value = make([]rlwe.PolyQP, beta)
+	ret.CRS[1].Value = make([]rlwe.PolyQP, beta)
 
 	for i := 0; i < beta; i++ {
-		ret.CRS[0][i] = ringQP.NewPoly()
-		uniformSamplerQ.Read(ret.CRS[0][i].Q)
-		uniformSamplerP.Read(ret.CRS[0][i].P)
+		ret.CRS[0].Value[i] = ringQP.NewPoly()
+		uniformSamplerQ.Read(ret.CRS[0].Value[i].Q)
+		uniformSamplerP.Read(ret.CRS[0].Value[i].P)
 
-		ret.CRS[1][i] = ringQP.NewPoly()
-		uniformSamplerQ.Read(ret.CRS[1][i].Q)
-		uniformSamplerP.Read(ret.CRS[1][i].P)
+		ret.CRS[1].Value[i] = ringQP.NewPoly()
+		uniformSamplerQ.Read(ret.CRS[1].Value[i].Q)
+		uniformSamplerP.Read(ret.CRS[1].Value[i].P)
 	}
 	return *ret
 }

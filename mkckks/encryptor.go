@@ -6,7 +6,7 @@ import "mk-lattigo/mkrlwe"
 
 type Encryptor struct {
 	*mkrlwe.Encryptor
-	ckks.Encoder
+	encoder  ckks.Encoder
 	params   Parameters
 	ptxtPool *ckks.Plaintext
 }
@@ -18,7 +18,7 @@ func NewEncryptor(params Parameters, pk *mkrlwe.PublicKey) *Encryptor {
 
 	ret := new(Encryptor)
 	ret.Encryptor = mkrlwe.NewEncryptor(params.Parameters, pk)
-	ret.Encoder = ckks.NewEncoder(ckksParams)
+	ret.encoder = ckks.NewEncoder(ckksParams)
 	ret.params = params
 	ret.ptxtPool = ckks.NewPlaintext(ckksParams, params.MaxLevel(), params.Scale())
 	return ret
@@ -38,6 +38,6 @@ func (enc *Encryptor) EncryptPtxt(plaintext *ckks.Plaintext, ctOut *Ciphertext) 
 // and NewFastEncryptor).
 // The level of the output ciphertext is min(plaintext.Level(), ciphertext.Level()).
 func (enc *Encryptor) EncryptMsg(msg *Message, ctOut *Ciphertext) {
-	enc.Encoder.Encode(enc.ptxtPool, msg.Value, enc.params.LogSlots())
+	enc.encoder.Encode(enc.ptxtPool, msg.Value, enc.params.LogSlots())
 	enc.EncryptPtxt(enc.ptxtPool, ctOut)
 }

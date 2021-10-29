@@ -8,10 +8,10 @@ type Ciphertext struct {
 }
 
 // NewCiphertext returns a new Element with zero values
-func NewCiphertext(params Parameters, idset []string, level int) *Ciphertext {
+func NewCiphertext(params Parameters, idset *mkrlwe.IDSet, level int, scale float64) *Ciphertext {
 	el := new(Ciphertext)
 	el.Ciphertext = mkrlwe.NewCiphertextNTT(params.Parameters, idset, level)
-	el.Scale = params.scale
+	el.Scale = scale
 
 	return el
 }
@@ -24,12 +24,6 @@ func (ct *Ciphertext) ScalingFactor() float64 {
 // SetScalingFactor sets the scaling factor of the ciphertext
 func (ct *Ciphertext) SetScalingFactor(scale float64) {
 	ct.Scale = scale
-}
-
-// Copy copies the given ciphertext ctp into the receiver ciphertext.
-func (ct *Ciphertext) Copy(ctp *Ciphertext) {
-	ct.Ciphertext.Copy(ctp.Ciphertext)
-	ct.Scale = ctp.Scale
 }
 
 // CopyNew makes a deep copy of the receiver ciphertext and returns it.

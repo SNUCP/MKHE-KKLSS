@@ -5,7 +5,7 @@ import "mk-lattigo/mkrlwe"
 
 type Decryptor struct {
 	*mkrlwe.Decryptor
-	ckks.Encoder
+	encoder  ckks.Encoder
 	params   Parameters
 	ptxtPool *ckks.Plaintext
 }
@@ -16,7 +16,7 @@ func NewDecryptor(params Parameters) *Decryptor {
 
 	ret := new(Decryptor)
 	ret.Decryptor = mkrlwe.NewDecryptor(params.Parameters)
-	ret.Encoder = ckks.NewEncoder(ckksParams)
+	ret.encoder = ckks.NewEncoder(ckksParams)
 	ret.params = params
 	ret.ptxtPool = ckks.NewPlaintext(ckksParams, params.MaxLevel(), params.Scale())
 	return ret
@@ -33,7 +33,7 @@ func (dec *Decryptor) PartialDecrypt(ct *Ciphertext, sk *mkrlwe.SecretKey) {
 func (dec *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *mkrlwe.SecretKeySet) (msg *Message) {
 	dec.Decryptor.Decrypt(ciphertext.Ciphertext, skSet, dec.ptxtPool.Plaintext)
 	msg = new(Message)
-	msg.Value = dec.Decode(dec.ptxtPool, dec.params.logSlots)
+	msg.Value = dec.encoder.Decode(dec.ptxtPool, dec.params.logSlots)
 
 	return
 }
