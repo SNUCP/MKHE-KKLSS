@@ -8,12 +8,23 @@ import "math"
 type KeySwitcher struct {
 	rlwe.KeySwitcher
 	Parameters
+	polyQPool [3]*ring.Poly
+	swkPool   *SwitchingKey
 }
 
 func NewKeySwitcher(params Parameters) *KeySwitcher {
 	ks := new(KeySwitcher)
 	ks.KeySwitcher = *rlwe.NewKeySwitcher(params.Parameters)
 	ks.Parameters = params
+
+	ringQ := params.RingQ()
+	ks.polyQPool = [3]*ring.Poly{ringQ.NewPoly(), ringQ.NewPoly(), ringQ.NewPoly()}
+	ks.polyQPool[0].IsNTT = true
+	ks.polyQPool[1].IsNTT = true
+	ks.polyQPool[2].IsNTT = true
+
+	ks.swkPool = NewSwitchingKey(params)
+
 	return ks
 }
 
@@ -110,5 +121,103 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 		ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
 
 		ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
+	}
+}
+
+// MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
+// The procedure will panic if either op0.Degree or op1.Degree > 1.
+// The procedure will panic if ctOut.Degree != op0.Degree + op1.Degree.
+// The procedure will panic if the ksuator was not created with an relinearization key.
+func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
+
+	if op0.Level() != op1.Level() {
+		panic("Cannot MulAndRelin: op0 and op1 have different levels")
+	}
+
+	if ctOut.Level() != op0.Level() {
+		panic("Cannot MulAndRelin: op0 and ctOut have different levels")
+	}
+
+	level := op0.Level()
+
+	idset0 := op0.IDSet()
+	idset1 := op1.IDSet()
+
+	params := ks.Parameters
+	ringQP := params.RingQP()
+	ringQ := params.RingQ()
+
+	levelP := params.PCount() - 1
+	beta := int(math.Ceil(float64(level+1) / float64(levelP+1)))
+
+	x := NewSwitchingKey(params)
+	y := NewSwitchingKey(params)
+
+	//gen x vector
+	for id := range idset0.Value {
+		ks.Decompose(level, op0.Value[id], ks.swkPool)
+		d := rlkSet.Value[id].Value[1]
+		for i := 0; i < beta; i++ {
+			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, d.Value[i], ks.swkPool.Value[i], x.Value[i])
+		}
+	}
+
+	for i := 0; i < beta; i++ {
+		ringQP.MFormLvl(level, levelP, x.Value[i], x.Value[i])
+	}
+
+	//gen y vector
+	for id := range idset1.Value {
+		ks.Decompose(level, op1.Value[id], ks.swkPool)
+		b := rlkSet.Value[id].Value[0]
+		for i := 0; i < beta; i++ {
+			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, b.Value[i], ks.swkPool.Value[i], y.Value[i])
+		}
+	}
+
+	for i := 0; i < beta; i++ {
+		ringQP.MFormLvl(level, levelP, y.Value[i], y.Value[i])
+	}
+
+	//ctOut_0 <- op0_0 * op1_0
+	ringQ.MFormLvl(level, op0.Value["0"], ctOut.Value["0"])
+	ringQ.MulCoeffsMontgomeryLvl(level, op1.Value["0"], ctOut.Value["0"], ctOut.Value["0"])
+
+	//ctOut_j <- op0_0 * op1_j + op0_j * op1_0
+	ringQ.MFormLvl(level, op1.Value["0"], ks.polyQPool[0])
+	for id := range idset0.Value {
+		ringQ.MulCoeffsMontgomeryLvl(level, ks.polyQPool[0], op0.Value[id], ctOut.Value[id])
+	}
+
+	ringQ.MFormLvl(level, op0.Value["0"], ks.polyQPool[0])
+	for id := range idset1.Value {
+		if idset0.Has(id) {
+			ringQ.MulCoeffsMontgomeryAndAddLvl(level, ks.polyQPool[0], op1.Value[id], ctOut.Value[id])
+		} else {
+			ringQ.MulCoeffsMontgomeryLvl(level, ks.polyQPool[0], op1.Value[id], ctOut.Value[id])
+		}
+	}
+
+	//ctOut_j <- ctOut_j +  Inter(op1_j, x)
+	for id := range idset1.Value {
+		ks.InternalProduct(level, op1.Value[id], x, ks.polyQPool[0])
+		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[0], ctOut.Value[id])
+	}
+
+	//ctOut_0 <- ctOut_0 + Inter(Inter(op0_i, y), v_i)
+	//ctOut_i <- ctOut_i + Inter(Inter(op0_i, y), u)
+
+	u := params.CRS[1]
+
+	for id := range idset0.Value {
+		v := rlkSet.Value[id].Value[2]
+		ks.InternalProduct(level, op0.Value[id], y, ks.polyQPool[0])
+
+		ks.InternalProduct(level, ks.polyQPool[0], v, ks.polyQPool[1])
+		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[1], ctOut.Value["0"])
+
+		ks.InternalProduct(level, ks.polyQPool[0], u, ks.polyQPool[2])
+		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[2], ctOut.Value[id])
+
 	}
 }

@@ -57,6 +57,7 @@ func TestMKRLWE(t *testing.T) {
 
 		testDecompose(kgen, t)
 		testInternalProduct(kgen, t)
+		testRelinearize(kgen, t)
 
 	}
 
@@ -242,12 +243,12 @@ func testSwitchKeyGen(kgen *KeyGenerator, t *testing.T) {
 		}
 		tmp := ringQP.NewPoly()
 		ringQ.MulScalarBigint(sk.Value.Q, pBigInt, tmp.Q)
-		ringQP.InvMFormLvl(levelQ, levelP, tmp, tmp)
 
 		for i := 0; i < beta; i++ {
 			ringQP.SubLvl(levelQ, levelP, tmp, sg.Value[i], tmp)
 		}
 
+		ringQP.InvMFormLvl(levelQ, levelP, tmp, tmp)
 		ringQP.InvNTTLvl(levelQ, levelP, tmp, tmp)
 
 		//check errors
@@ -291,9 +292,10 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		//check b=-sa+e
 		b := rlk.Value[0]
 		for i := 0; i < beta; i++ {
-			ringQP.InvMFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
 
 			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a.Value[i], s.Value, b.Value[i])
+
+			ringQP.InvMFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
 			ringQP.InvNTTLvl(levelQ, levelP, b.Value[i], b.Value[i])
 
 			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelQ, ringQ, b.Value[i].Q))
@@ -303,10 +305,11 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		//check d = -ra + sg + e
 		d := rlk.Value[1]
 		for i := 0; i < beta; i++ {
-			ringQP.InvMFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
 
 			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a.Value[i], r.Value, d.Value[i])
 			ringQP.SubLvl(levelQ, levelP, d.Value[i], sg.Value[i], d.Value[i])
+
+			ringQP.InvMFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
 			ringQP.InvNTTLvl(levelQ, levelP, d.Value[i], d.Value[i])
 
 			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelQ, ringQ, d.Value[i].Q))
@@ -316,10 +319,11 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		//check v = -su -rg + e
 		v := rlk.Value[2]
 		for i := 0; i < beta; i++ {
-			ringQP.InvMFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
 
 			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u.Value[i], s.Value, v.Value[i])
 			ringQP.AddLvl(levelQ, levelP, v.Value[i], rg.Value[i], v.Value[i])
+
+			ringQP.InvMFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
 			ringQP.InvNTTLvl(levelQ, levelP, v.Value[i], v.Value[i])
 
 			require.GreaterOrEqual(t, 5+params.LogN(), log2OfInnerSum(levelQ, ringQ, v.Value[i].Q))
@@ -434,9 +438,7 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		users.Add(id)
 
 		ringQ := params.RingQ()
-		ringQP := params.RingQP()
 		levelQ := params.QCount() - 1
-		levelP := params.PCount() - 1
 		sk := kgen.GenSecretKey(id)
 		pk := kgen.GenPublicKey(sk)
 		plaintext := rlwe.NewPlaintext(params.Parameters, levelQ)
@@ -449,17 +451,14 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		sg := NewSwitchingKey(params)
 		kgen.GenSwitchingKey(sk, sg)
 
-		for i := 0; i < len(sg.Value); i++ {
-			ringQP.MFormLvl(levelQ, levelP, sg.Value[i], sg.Value[i])
-		}
-
 		//tmp = Inter(c, sg)
 		ks := NewKeySwitcher(params)
 		tmp := ringQ.NewPolyLvl(ciphertext.Level())
+		tmp.IsNTT = true
 		ks.InternalProduct(ciphertext.Level(), ciphertext.Value["0"], sg, tmp)
 
 		//tmp2 = c*s
-		ringQ.MulCoeffsMontgomeryAndSubLvl(ciphertext.Level(), ciphertext.Value["0"], sk.Value.Q, tmp)
+		ringQ.MulCoeffsMontgomeryAndSubLvl(ciphertext.Level(), sk.Value.Q, ciphertext.Value["0"], tmp)
 		ringQ.InvNTTLvl(ciphertext.Level(), tmp, tmp)
 
 		//check errors
@@ -476,10 +475,7 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		users := NewIDSet()
 		users.Add(id)
 
-		ringQP := params.RingQP()
 		ringQ := params.RingQ()
-		levelQ := params.QCount() - 1
-		levelP := params.PCount() - 1
 		sk := kgen.GenSecretKey(id)
 		pk := kgen.GenPublicKey(sk)
 		plaintext := rlwe.NewPlaintext(params.Parameters, 0)
@@ -491,10 +487,6 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		//generate sg
 		sg := NewSwitchingKey(params)
 		kgen.GenSwitchingKey(sk, sg)
-
-		for i := 0; i < len(sg.Value); i++ {
-			ringQP.MFormLvl(levelQ, levelP, sg.Value[i], sg.Value[i])
-		}
 
 		//tmp = P*s
 		ks := NewKeySwitcher(params)
@@ -547,10 +539,6 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 		sg := NewSwitchingKey(params)
 		kgen.GenSwitchingKey(sk, sg)
 
-		for i := 0; i < len(sg.Value); i++ {
-			ringQP.MFormLvl(levelQ, levelP, sg.Value[i], sg.Value[i])
-		}
-
 		//generate cd
 		ks := NewKeySwitcher(params)
 		cd := NewSwitchingKey(params)
@@ -583,7 +571,6 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 
 		ringQ := params.RingQ()
 		ringQP := params.RingQP()
-		levelQ := params.QCount() - 1
 		levelP := params.PCount() - 1
 		sk := kgen.GenSecretKey(id)
 		pk := kgen.GenPublicKey(sk)
@@ -598,10 +585,6 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 		//generate sg
 		sg := NewSwitchingKey(params)
 		kgen.GenSwitchingKey(sk, sg)
-
-		for i := 0; i < len(sg.Value); i++ {
-			ringQP.MFormLvl(levelQ, levelP, sg.Value[i], sg.Value[i])
-		}
 
 		//generate cd
 		ks := NewKeySwitcher(params)
@@ -622,4 +605,90 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 		//check errors
 		require.GreaterOrEqual(t, 10+params.LogN(), log2OfInnerSum(tmp.Q.Level(), params.RingQ(), tmp.Q))
 	})
+}
+
+func testRelinearize(kgen *KeyGenerator, t *testing.T) {
+
+	// Checks that internal product works properly
+	// 1) generate two pk (-as+e, a)
+	// 2) generate sg
+	// 3) check Interal(-as+e, sg) similar to -as^2
+
+	params := kgen.params
+
+	t.Run(testString(params, "RelinMaxLevel/"), func(t *testing.T) {
+
+		if params.PCount() == 0 {
+			t.Skip()
+		}
+
+		ringQ := params.RingQ()
+		levelQ := params.QCount() - 1
+
+		level := levelQ
+
+		pt := rlwe.NewPlaintext(params.Parameters, level)
+		pt.Value.IsNTT = true
+
+		user1 := "user1"
+		user2 := "user2"
+		idset1 := NewIDSet()
+		idset2 := NewIDSet()
+
+		idset1.Add(user1)
+		idset2.Add(user2)
+		idset := idset1.Union(idset2)
+
+		sk1, pk1 := kgen.GenKeyPair(user1)
+		r1 := kgen.GenSecretKey(user1)
+		rlk1 := kgen.GenRelinearizationKey(sk1, r1)
+
+		sk2, pk2 := kgen.GenKeyPair(user2)
+		r2 := kgen.GenSecretKey(user2)
+		rlk2 := kgen.GenRelinearizationKey(sk2, r2)
+
+		skSet := NewSecretKeySet()
+		skSet.AddSecretKey(sk1)
+		skSet.AddSecretKey(sk2)
+
+		rlkSet := NewRelinearizationKeyKeySet()
+		rlkSet.AddRelinearizationKey(rlk1)
+		rlkSet.AddRelinearizationKey(rlk2)
+
+		enc := NewEncryptor(params)
+		dec := NewDecryptor(params)
+
+		ct1 := NewCiphertextNTT(params, idset1, level)
+		ct2 := NewCiphertextNTT(params, idset2, level)
+
+		enc.Encrypt(pt, pk1, ct1)
+		enc.Encrypt(pt, pk2, ct2)
+
+		ct3 := NewCiphertextNTT(params, idset, level)
+		ks := NewKeySwitcher(params)
+		ks.MulAndRelin(ct1, ct2, rlkSet, ct3)
+
+		ct4 := NewCiphertextNTT(params, idset, level)
+		ringQ.AddLvl(level, ct1.Value["0"], ct2.Value["0"], ct4.Value["0"])
+		ringQ.AddLvl(level, ct4.Value[user1], ct1.Value[user1], ct4.Value[user1])
+		ringQ.AddLvl(level, ct4.Value[user2], ct2.Value[user2], ct4.Value[user2])
+
+		dec.Decrypt(ct1, skSet, pt)
+		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
+
+		dec.Decrypt(ct2, skSet, pt)
+		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
+
+		dec.Decrypt(ct4, skSet, pt)
+		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
+		require.GreaterOrEqual(t, 10+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
+
+		dec.Decrypt(ct3, skSet, pt)
+		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
+
+	})
+
 }

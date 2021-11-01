@@ -162,6 +162,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	b := rlk.Value[0]
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a.Value[i], sk.Value, b.Value[i])
+		ringQP.InvMFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
 		keygen.genGaussianError(tmp)
 		ringQP.SubLvl(levelQ, levelP, tmp, b.Value[i], b.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
@@ -172,7 +173,6 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	keygen.GenSwitchingKey(sk, d)
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a.Value[i], r.Value, d.Value[i])
-		ringQP.MFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
 	}
 
 	//generate vector v = -su - rg + e in MForm
@@ -182,7 +182,6 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u.Value[i], sk.Value, v.Value[i])
 		ringQ.NegLvl(levelQ, v.Value[i].Q, v.Value[i].Q)
 		ringP.NegLvl(levelP, v.Value[i].P, v.Value[i].P)
-		ringQP.MFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
 	}
 	return
 }
@@ -209,7 +208,6 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 
 	// Computes P * skIn
 	ringQ.MulScalarBigintLvl(levelQ, skIn.Value.Q, pBigInt, keygen.poolQ)
-	ringQ.InvMFormLvl(levelQ, keygen.poolQ, keygen.poolQ)
 
 	var index int
 	for i := 0; i < beta; i++ {
@@ -218,7 +216,7 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 		keygen.gaussianSamplerQ.ReadLvl(levelQ, swk.Value[i].Q)
 		ringQP.ExtendBasisSmallNormAndCenter(swk.Value[i].Q, levelP, nil, swk.Value[i].P)
 		ringQP.NTTLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
-		//ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
+		ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
 
 		// e + (skIn * P) * (q_star * q_tild) mod QP
 		//
@@ -244,6 +242,6 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 				p1tmp[w] = ring.CRed(p1tmp[w]+p0tmp[w], qi)
 			}
 		}
-
 	}
+
 }

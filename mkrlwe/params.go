@@ -36,10 +36,12 @@ func NewParameters(params rlwe.Parameters) Parameters {
 		ret.CRS[0].Value[i] = ringQP.NewPoly()
 		uniformSamplerQ.Read(ret.CRS[0].Value[i].Q)
 		uniformSamplerP.Read(ret.CRS[0].Value[i].P)
+		ringQP.MFormLvl(levelQ, levelP, ret.CRS[0].Value[i], ret.CRS[0].Value[i])
 
 		ret.CRS[1].Value[i] = ringQP.NewPoly()
 		uniformSamplerQ.Read(ret.CRS[1].Value[i].Q)
 		uniformSamplerP.Read(ret.CRS[1].Value[i].P)
+		ringQP.MFormLvl(levelQ, levelP, ret.CRS[1].Value[i], ret.CRS[1].Value[i])
 	}
 	return *ret
 }
