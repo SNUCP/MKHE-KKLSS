@@ -35,6 +35,9 @@ func NewEvaluator(params Parameters) *Evaluator {
 
 	ringQ := params.RingQ()
 	eval.polyQPool = [3]*ring.Poly{ringQ.NewPoly(), ringQ.NewPoly(), ringQ.NewPoly()}
+	eval.polyQPool[0].IsNTT = true
+	eval.polyQPool[1].IsNTT = true
+	eval.polyQPool[2].IsNTT = true
 
 	eval.swkPool = mkrlwe.NewSwitchingKey(params.Parameters)
 
@@ -294,7 +297,8 @@ func (eval *Evaluator) evaluateInPlace(c0, c1, ctOut *Ciphertext, evaluate func(
 		}
 	}
 
-	for id := range ctOut.Value {
+	evaluate(level, tmp0.Value["0"], tmp1.Value["0"], ctOut.Value["0"])
+	for id := range ctOut.IDSet().Value {
 		if !idset0.Has(id) {
 			ring.CopyValuesLvl(level, tmp1.Value[id], ctOut.Value[id])
 		} else if !idset1.Has(id) {
@@ -318,6 +322,7 @@ func (eval *Evaluator) newCiphertextBinary(op0, op1 *Ciphertext) (ctOut *Ciphert
 // Add adds op0 to op1 and returns the result in ctOut.
 func (eval *Evaluator) Add(op0, op1 *Ciphertext, ctOut *Ciphertext) {
 	eval.evaluateInPlace(op0, op1, ctOut, eval.params.RingQ().AddLvl)
+
 }
 
 // AddNew adds op0 to op1 and returns the result in a newly created element.
@@ -336,7 +341,7 @@ func (eval *Evaluator) Sub(op0, op1 *Ciphertext, ctOut *Ciphertext) {
 
 	//negate polys which is not contained in op0
 	idset0 := op0.IDSet()
-	for id := range ctOut.Value {
+	for id := range ctOut.IDSet().Value {
 		if !idset0.Has(id) {
 			eval.params.RingQ().NegLvl(level, ctOut.Value[id], ctOut.Value[id])
 		}
@@ -451,7 +456,7 @@ func (eval *Evaluator) MulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 	ks := mkrlwe.NewKeySwitcher(params.Parameters)
 
 	//gen x vector
-	for id := range idset.Value {
+	for id := range idset0.Value {
 		ks.Decompose(level, op0.Value[id], eval.swkPool)
 		d := rlkSet.Value[id].Value[1]
 		for i := 0; i < beta; i++ {
@@ -460,7 +465,7 @@ func (eval *Evaluator) MulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 	}
 
 	//gen y vector
-	for id := range idset.Value {
+	for id := range idset1.Value {
 		ks.Decompose(level, op1.Value[id], eval.swkPool)
 		b := rlkSet.Value[id].Value[0]
 		for i := 0; i < beta; i++ {
@@ -473,6 +478,7 @@ func (eval *Evaluator) MulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 	ringQ.MulCoeffsMontgomeryLvl(level, op1.Value["0"], ctOut.Value["0"], ctOut.Value["0"])
 
 	//ctOut_j <- op0_0 * op1_j + op0_j * op1_0
+
 	for id := range idset.Value {
 		if !idset0.Has(id) { //op0_j = 0
 			ringQ.MFormLvl(level, op0.Value["0"], ctOut.Value[id])
@@ -505,9 +511,12 @@ func (eval *Evaluator) MulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 		u := params.CRS[1]
 		ringQ.MFormLvl(level, op0.Value[id], eval.polyQPool[0])
 		ks.InternalProduct(level, eval.polyQPool[0], y, eval.polyQPool[0])
-		ringQ.MFormLvl(level, op0.Value[id], eval.polyQPool[0])
 
 		ks.InternalProduct(level, eval.polyQPool[0], v, eval.polyQPool[1])
 		ks.InternalProduct(level, eval.polyQPool[0], u, eval.polyQPool[2])
+
+		ringQ.AddLvl(level, ctOut.Value["0"], eval.polyQPool[1], ctOut.Value["0"])
+		ringQ.AddLvl(level, ctOut.Value[id], eval.polyQPool[2], ctOut.Value[id])
+
 	}
 }

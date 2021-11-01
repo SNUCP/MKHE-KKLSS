@@ -22,7 +22,6 @@ type encryptorBase struct {
 // Encryptor is a struct used to encrypt plaintext with public key
 type Encryptor struct {
 	encryptorBase
-	pk *PublicKey
 }
 
 func newEncryptorBase(params Parameters) encryptorBase {
@@ -53,8 +52,8 @@ func newEncryptorBase(params Parameters) encryptorBase {
 }
 
 // Encrypt encrypts the input Plaintext and write the result in ctOut.
-func (encryptor *Encryptor) Encrypt(plaintext *rlwe.Plaintext, ctOut *Ciphertext) {
-	id := encryptor.pk.ID
+func (encryptor *Encryptor) Encrypt(plaintext *rlwe.Plaintext, pk *PublicKey, ctOut *Ciphertext) {
+	id := pk.ID
 	levelQ := utils.MinInt(plaintext.Level(), ctOut.Level())
 
 	poolQ0 := encryptor.poolQ[0]
@@ -68,9 +67,9 @@ func (encryptor *Encryptor) Encrypt(plaintext *rlwe.Plaintext, ctOut *Ciphertext
 	ringQ.MFormLvl(levelQ, poolQ0, poolQ0)
 
 	// ct0 = u*pk0
-	ringQ.MulCoeffsMontgomeryLvl(levelQ, poolQ0, encryptor.pk.Value[0].Q, ctOut.Value["0"])
+	ringQ.MulCoeffsMontgomeryLvl(levelQ, poolQ0, pk.Value[0].Q, ctOut.Value["0"])
 	// ct1 = u*pk1
-	ringQ.MulCoeffsMontgomeryLvl(levelQ, poolQ0, encryptor.pk.Value[1].Q, ctOut.Value[id])
+	ringQ.MulCoeffsMontgomeryLvl(levelQ, poolQ0, pk.Value[1].Q, ctOut.Value[id])
 
 	if ciphertextNTT {
 
@@ -120,6 +119,6 @@ func (encryptor *Encryptor) Encrypt(plaintext *rlwe.Plaintext, ctOut *Ciphertext
 
 // NewEncryptor instatiates a new generic RLWE Encryptor. The key argument can
 // be either a *rlwe.PublicKey or a *rlwe.SecretKey.
-func NewEncryptor(params Parameters, pk *PublicKey) *Encryptor {
-	return &Encryptor{newEncryptorBase(params), pk}
+func NewEncryptor(params Parameters) *Encryptor {
+	return &Encryptor{newEncryptorBase(params)}
 }

@@ -46,8 +46,11 @@ func (decryptor *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *SecretKeySet,
 	plaintext.Value.Coeffs = plaintext.Value.Coeffs[:level+1]
 
 	ctTmp := ciphertext.CopyNew()
+	idset := ctTmp.IDSet()
 	for _, sk := range skSet.Value {
-		decryptor.PartialDecrypt(ctTmp, sk)
+		if idset.Has(sk.ID) {
+			decryptor.PartialDecrypt(ctTmp, sk)
+		}
 	}
 
 	if len(ctTmp.Value) > 1 {

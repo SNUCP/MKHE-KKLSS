@@ -32,11 +32,6 @@ func testString(params Parameters, opname string) string {
 
 func TestMKRLWE(t *testing.T) {
 	defaultParams := TestParams // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
-	/*
-		  if testing.Short() {
-				defaultParams = TestParams[:2] // the short test suite runs for ring degree N=2^12, 2^13
-			}
-	*/
 
 	if *flagParamString != "" {
 		var jsonParams rlwe.ParametersLiteral
@@ -176,9 +171,9 @@ func testEncryptor(kgen *KeyGenerator, t *testing.T) {
 
 		plaintext := rlwe.NewPlaintext(params.Parameters, params.MaxLevel())
 		plaintext.Value.IsNTT = true
-		encryptor := NewEncryptor(params, pk)
+		encryptor := NewEncryptor(params)
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
-		encryptor.Encrypt(plaintext, ciphertext)
+		encryptor.Encrypt(plaintext, pk, ciphertext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
 		ringQ.MulCoeffsMontgomeryAndAddLvl(ciphertext.Level(), ciphertext.Value[user1], sk.Value.Q, ciphertext.Value["0"])
 		ringQ.InvNTTLvl(ciphertext.Level(), ciphertext.Value["0"], ciphertext.Value["0"])
@@ -199,9 +194,9 @@ func testEncryptor(kgen *KeyGenerator, t *testing.T) {
 
 		plaintext := rlwe.NewPlaintext(params.Parameters, params.MaxLevel())
 		plaintext.Value.IsNTT = true
-		encryptor := NewEncryptor(params, pk)
+		encryptor := NewEncryptor(params)
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
-		encryptor.Encrypt(plaintext, ciphertext)
+		encryptor.Encrypt(plaintext, pk, ciphertext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
 		ringQ.MulCoeffsMontgomeryAndAddLvl(ciphertext.Level(), ciphertext.Value[user1], sk.Value.Q, ciphertext.Value["0"])
 		ringQ.InvNTTLvl(ciphertext.Level(), ciphertext.Value["0"], ciphertext.Value["0"])
@@ -343,7 +338,7 @@ func testDecryptor(kgen *KeyGenerator, t *testing.T) {
 
 	sk, pk := kgen.GenKeyPair(user1)
 	ringQ := params.RingQ()
-	encryptor := NewEncryptor(params, pk)
+	encryptor := NewEncryptor(params)
 	decryptor := NewDecryptor(params)
 
 	skSet := NewSecretKeySet()
@@ -353,7 +348,7 @@ func testDecryptor(kgen *KeyGenerator, t *testing.T) {
 		plaintext := rlwe.NewPlaintext(params.Parameters, params.MaxLevel())
 		plaintext.Value.IsNTT = true
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
-		encryptor.Encrypt(plaintext, ciphertext)
+		encryptor.Encrypt(plaintext, pk, ciphertext)
 		decryptor.Decrypt(ciphertext, skSet, plaintext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
 		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
@@ -364,12 +359,59 @@ func testDecryptor(kgen *KeyGenerator, t *testing.T) {
 		plaintext := rlwe.NewPlaintext(params.Parameters, params.MaxLevel())
 		plaintext.Value.IsNTT = true
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
-		encryptor.Encrypt(plaintext, ciphertext)
+		encryptor.Encrypt(plaintext, pk, ciphertext)
 		decryptor.Decrypt(ciphertext, skSet, plaintext)
 		require.Equal(t, plaintext.Level(), ciphertext.Level())
 		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
 		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
 	})
+
+	t.Run(testString(params, "Decrypt/Multikey/"), func(t *testing.T) {
+		plaintext := rlwe.NewPlaintext(params.Parameters, params.MaxLevel())
+		plaintext.Value.IsNTT = true
+
+		user1 := "user1"
+		user2 := "user2"
+		idset1 := NewIDSet()
+		idset2 := NewIDSet()
+
+		idset1.Add(user1)
+		idset2.Add(user2)
+		idset := idset1.Union(idset2)
+
+		sk1, pk1 := kgen.GenKeyPair(user1)
+		sk2, pk2 := kgen.GenKeyPair(user2)
+
+		skSet.AddSecretKey(sk1)
+		skSet.AddSecretKey(sk2)
+
+		level := plaintext.Level()
+
+		ct1 := NewCiphertextNTT(params, idset1, level)
+		ct2 := NewCiphertextNTT(params, idset2, level)
+		ctOut := NewCiphertextNTT(params, idset, level)
+
+		encryptor.Encrypt(plaintext, pk1, ct1)
+		encryptor.Encrypt(plaintext, pk2, ct2)
+
+		ringQ.AddLvl(level, ct1.Value["0"], ct2.Value["0"], ctOut.Value["0"])
+		ctOut.Value[user1].Copy(ct1.Value[user1])
+		ctOut.Value[user2].Copy(ct2.Value[user2])
+
+		decryptor.Decrypt(ct1, skSet, plaintext)
+		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ct1.Level(), ringQ, plaintext.Value))
+
+		decryptor.Decrypt(ct2, skSet, plaintext)
+		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ct2.Level(), ringQ, plaintext.Value))
+
+		decryptor.Decrypt(ctOut, skSet, plaintext)
+		ringQ.InvNTTLvl(plaintext.Level(), plaintext.Value, plaintext.Value)
+		require.GreaterOrEqual(t, 10+params.LogN(), log2OfInnerSum(ctOut.Level(), ringQ, plaintext.Value))
+
+	})
+
 }
 
 func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
@@ -399,9 +441,9 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		pk := kgen.GenPublicKey(sk)
 		plaintext := rlwe.NewPlaintext(params.Parameters, levelQ)
 		plaintext.Value.IsNTT = true
-		encryptor := NewEncryptor(params, pk)
+		encryptor := NewEncryptor(params)
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
-		encryptor.Encrypt(plaintext, ciphertext)
+		encryptor.Encrypt(plaintext, pk, ciphertext)
 
 		//generate sg
 		sg := NewSwitchingKey(params)
@@ -442,9 +484,9 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		pk := kgen.GenPublicKey(sk)
 		plaintext := rlwe.NewPlaintext(params.Parameters, 0)
 		plaintext.Value.IsNTT = true
-		encryptor := NewEncryptor(params, pk)
+		encryptor := NewEncryptor(params)
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
-		encryptor.Encrypt(plaintext, ciphertext)
+		encryptor.Encrypt(plaintext, pk, ciphertext)
 
 		//generate sg
 		sg := NewSwitchingKey(params)
@@ -495,9 +537,9 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 		pk := kgen.GenPublicKey(sk)
 		plaintext := rlwe.NewPlaintext(params.Parameters, levelQ)
 		plaintext.Value.IsNTT = true
-		encryptor := NewEncryptor(params, pk)
+		encryptor := NewEncryptor(params)
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
-		encryptor.Encrypt(plaintext, ciphertext)
+		encryptor.Encrypt(plaintext, pk, ciphertext)
 
 		beta := int(math.Ceil(float64(ciphertext.Level()+1) / float64(levelP+1)))
 
@@ -547,9 +589,9 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 		pk := kgen.GenPublicKey(sk)
 		plaintext := rlwe.NewPlaintext(params.Parameters, 0)
 		plaintext.Value.IsNTT = true
-		encryptor := NewEncryptor(params, pk)
+		encryptor := NewEncryptor(params)
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
-		encryptor.Encrypt(plaintext, ciphertext)
+		encryptor.Encrypt(plaintext, pk, ciphertext)
 
 		beta := int(math.Ceil(float64(ciphertext.Level()+1) / float64(levelP+1)))
 

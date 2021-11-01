@@ -36,10 +36,10 @@ func (el *Ciphertext) IDSet() *IDSet {
 	idset := NewIDSet()
 
 	for id := range el.Value {
-		idset.Add(id)
+		if id != "0" {
+			idset.Add(id)
+		}
 	}
-
-	idset.Remove("0")
 
 	return idset
 }
