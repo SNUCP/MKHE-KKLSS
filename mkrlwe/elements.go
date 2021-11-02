@@ -3,17 +3,17 @@ package mkrlwe
 import "github.com/ldsec/lattigo/v2/ring"
 
 type Ciphertext struct {
-	Value0 *ring.Poly
-	Value  map[string]*ring.Poly
+	Value map[string]*ring.Poly
 }
 
 // NewCiphertext returns a new Element with zero values
-func NewCiphertext(params Parameters, idset []string, level int) *Ciphertext {
+func NewCiphertext(params Parameters, idset *IDSet, level int) *Ciphertext {
 	el := new(Ciphertext)
-	el.Value0 = ring.NewPoly(params.N(), level+1)
 	el.Value = make(map[string]*ring.Poly)
 
-	for _, id := range idset {
+	el.Value["0"] = ring.NewPoly(params.N(), level+1)
+
+	for id := range idset.Value {
 		el.Value[id] = ring.NewPoly(params.N(), level+1)
 	}
 
@@ -21,15 +21,10 @@ func NewCiphertext(params Parameters, idset []string, level int) *Ciphertext {
 }
 
 // NewCiphertextNTT returns a new Element with zero values and the NTT flags set
-func NewCiphertextNTT(params Parameters, idset []string, level int) *Ciphertext {
+func NewCiphertextNTT(params Parameters, idset *IDSet, level int) *Ciphertext {
 	el := NewCiphertext(params, idset, level)
-	el.Value0 = ring.NewPoly(params.N(), level+1)
-	el.Value0.IsNTT = true
 
-	el.Value = make(map[string]*ring.Poly)
-
-	for _, id := range idset {
-		el.Value[id] = ring.NewPoly(params.N(), level+1)
+	for id := range el.Value {
 		el.Value[id].IsNTT = true
 	}
 
@@ -37,13 +32,26 @@ func NewCiphertextNTT(params Parameters, idset []string, level int) *Ciphertext 
 }
 
 // NumID returns the number of IDs engaged in the target elements
-func (el *Ciphertext) NumIDs() int {
-	return len(el.Value)
+func (el *Ciphertext) IDSet() *IDSet {
+	idset := NewIDSet()
+
+	for id := range el.Value {
+		if id != "0" {
+			idset.Add(id)
+		}
+	}
+
+	return idset
 }
 
 // Level returns the level of the target elements
 func (el *Ciphertext) Level() int {
-	return len(el.Value0.Coeffs) - 1
+	return len(el.Value["0"].Coeffs) - 1
+}
+
+// El returns a pointer to this Element
+func (el *Ciphertext) El() *Ciphertext {
+	return el
 }
 
 // CopyNew creates a new element as a copy of the target element.
@@ -52,7 +60,7 @@ func (el *Ciphertext) CopyNew() *Ciphertext {
 	ctxCopy := new(Ciphertext)
 	ctxCopy.Value = make(map[string]*ring.Poly)
 
-	ctxCopy.Value0 = el.Value0.CopyNew()
+	ctxCopy.Value["0"] = el.Value["0"].CopyNew()
 	for id := range el.Value {
 		ctxCopy.Value[id] = el.Value[id].CopyNew()
 	}
@@ -60,19 +68,19 @@ func (el *Ciphertext) CopyNew() *Ciphertext {
 	return ctxCopy
 }
 
-// Copy copies the input element and its parameters on the target element.
-func (el *Ciphertext) Copy(ctxCopy *Ciphertext) {
+// PadCiphertext pads a ciphertext with an input idset
+func (el *Ciphertext) PadCiphertext(idset *IDSet) {
 
-	// clear target element
-	for id := range ctxCopy.Value {
-		delete(el.Value, id)
-	}
+	isNTT := el.Value["0"].IsNTT
+	oldIDs := el.IDSet()
 
-	if el != ctxCopy {
-		for id := range ctxCopy.Value {
-			el.Value[id].Copy(ctxCopy.Value[id])
+	degree := el.Value["0"].Degree()
+	level := el.Level()
+
+	for id := range idset.Value {
+		if !oldIDs.Has(id) {
+			el.Value[id] = ring.NewPoly(degree, level+1)
+			el.Value[id].IsNTT = isNTT
 		}
-		el.Value0.Copy(ctxCopy.Value0)
 	}
-
 }

@@ -3,7 +3,6 @@ package mkrlwe
 import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/ring"
 import "github.com/ldsec/lattigo/v2/utils"
-import "math"
 import "math/big"
 
 // KeyGenerator is a structure that stores the elements required to create new keys,
@@ -22,7 +21,7 @@ type KeyGenerator struct {
 
 // NewKeyGenerator creates a new KeyGenerator, from which the secret and public keys, as well as the evaluation,
 // rotation and switching keys can be generated.
-func NewKeyGenerator(params *Parameters) *KeyGenerator {
+func NewKeyGenerator(params Parameters) *KeyGenerator {
 
 	prng, err := utils.NewPRNG()
 	if err != nil {
@@ -30,7 +29,7 @@ func NewKeyGenerator(params *Parameters) *KeyGenerator {
 	}
 
 	keygen := new(KeyGenerator)
-	keygen.params = *params
+	keygen.params = params
 	keygen.poolQ = params.RingQ().NewPoly()
 	keygen.poolQP = params.RingQP().NewPoly()
 	keygen.gaussianSamplerQ = ring.NewGaussianSampler(prng, params.RingQ(), params.Sigma(), int(6*params.Sigma()))
@@ -150,7 +149,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 
 	//rlk = (b, d, v)
 	rlk = NewRelinearizationKey(keygen.params, id)
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+	beta := params.Beta(levelQ)
 
 	//set CRS
 	a := keygen.params.CRS[0]
@@ -161,7 +160,8 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	//generate vector b = -sa + e in MForm
 	b := rlk.Value[0]
 	for i := 0; i < beta; i++ {
-		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a[i], sk.Value, b.Value[i])
+		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a.Value[i], sk.Value, b.Value[i])
+		ringQP.InvMFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
 		keygen.genGaussianError(tmp)
 		ringQP.SubLvl(levelQ, levelP, tmp, b.Value[i], b.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
@@ -171,18 +171,16 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	d := rlk.Value[1]
 	keygen.GenSwitchingKey(sk, d)
 	for i := 0; i < beta; i++ {
-		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a[i], r.Value, d.Value[i])
-		ringQP.MFormLvl(levelQ, levelP, d.Value[i], d.Value[i])
+		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a.Value[i], r.Value, d.Value[i])
 	}
 
 	//generate vector v = -su - rg + e in MForm
 	v := rlk.Value[2]
 	keygen.GenSwitchingKey(r, v)
 	for i := 0; i < beta; i++ {
-		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u[i], sk.Value, v.Value[i])
+		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u.Value[i], sk.Value, v.Value[i])
 		ringQ.NegLvl(levelQ, v.Value[i].Q, v.Value[i].Q)
 		ringP.NegLvl(levelP, v.Value[i].P, v.Value[i].P)
-		ringQP.MFormLvl(levelQ, levelP, v.Value[i], v.Value[i])
 	}
 	return
 }
@@ -191,10 +189,9 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) {
 	params := keygen.params
 	ringQ := params.RingQ()
-	ringQP := params.RingQP()
 	levelQ, levelP := params.QCount()-1, params.PCount()-1
-	alpha := levelP + 1
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+	alpha := params.Alpha()
+	beta := params.Beta(levelQ)
 
 	var pBigInt *big.Int
 	if levelP == keygen.params.PCount()-1 {
@@ -209,17 +206,17 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 
 	// Computes P * skIn
 	ringQ.MulScalarBigintLvl(levelQ, skIn.Value.Q, pBigInt, keygen.poolQ)
-	ringQ.InvMFormLvl(levelQ, keygen.poolQ, keygen.poolQ)
 
 	var index int
 	for i := 0; i < beta; i++ {
 
 		// e
+
+		ringQP := params.RingQP()
 		keygen.gaussianSamplerQ.ReadLvl(levelQ, swk.Value[i].Q)
 		ringQP.ExtendBasisSmallNormAndCenter(swk.Value[i].Q, levelP, nil, swk.Value[i].P)
 		ringQP.NTTLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
-		//ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
-
+		ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
 		// e + (skIn * P) * (q_star * q_tild) mod QP
 		//
 		// q_prod = prod(q[i*alpha+j])
@@ -244,6 +241,6 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 				p1tmp[w] = ring.CRed(p1tmp[w]+p0tmp[w], qi)
 			}
 		}
-
 	}
+
 }

@@ -1,7 +1,6 @@
 package mkrlwe
 
 import "github.com/ldsec/lattigo/v2/rlwe"
-import "math"
 
 // SecretKeySet is a type for generic Multikey RLWE secret keys.
 type SecretKey struct {
@@ -23,7 +22,6 @@ type PublicKey struct {
 // SwitchingKey is a type for generic RLWE switching keys.
 type SwitchingKey struct {
 	Value []rlwe.PolyQP
-	ID    string
 }
 
 // PublicKeySet is a type for a set of multikey RLWE public keys.
@@ -144,9 +142,8 @@ func NewPublicKey(params Parameters, id string) *PublicKey {
 }
 
 //
-func NewSwitchingKey(params Parameters, id string) *SwitchingKey {
-	levelQ, levelP := params.QCount()-1, params.PCount()-1
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+func NewSwitchingKey(params Parameters) *SwitchingKey {
+	beta := params.Beta(params.QCount() - 1)
 	ringQP := params.RingQP()
 	swk := new(SwitchingKey)
 	swk.Value = make([]rlwe.PolyQP, beta)
@@ -154,17 +151,15 @@ func NewSwitchingKey(params Parameters, id string) *SwitchingKey {
 		swk.Value[i] = ringQP.NewPoly()
 	}
 
-	swk.ID = id
-
 	return swk
 }
 
 // NewRelinearizationKey returns a new RelinearizationKey with zero values.
 func NewRelinearizationKey(params Parameters, id string) *RelinearizationKey {
 	rlk := new(RelinearizationKey)
-	rlk.Value[0] = NewSwitchingKey(params, id)
-	rlk.Value[1] = NewSwitchingKey(params, id)
-	rlk.Value[2] = NewSwitchingKey(params, id)
+	rlk.Value[0] = NewSwitchingKey(params)
+	rlk.Value[1] = NewSwitchingKey(params)
+	rlk.Value[2] = NewSwitchingKey(params)
 
 	rlk.ID = id
 

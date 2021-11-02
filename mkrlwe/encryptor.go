@@ -22,7 +22,6 @@ type encryptorBase struct {
 // Encryptor is a struct used to encrypt plaintext with public key
 type Encryptor struct {
 	encryptorBase
-	pk *PublicKey
 }
 
 func newEncryptorBase(params Parameters) encryptorBase {
@@ -53,24 +52,24 @@ func newEncryptorBase(params Parameters) encryptorBase {
 }
 
 // Encrypt encrypts the input Plaintext and write the result in ctOut.
-func (encryptor *Encryptor) Encrypt(plaintext *rlwe.Plaintext, ctOut *Ciphertext) {
-	id := encryptor.pk.ID
+func (encryptor *Encryptor) Encrypt(plaintext *rlwe.Plaintext, pk *PublicKey, ctOut *Ciphertext) {
+	id := pk.ID
 	levelQ := utils.MinInt(plaintext.Level(), ctOut.Level())
 
 	poolQ0 := encryptor.poolQ[0]
 
 	ringQ := encryptor.ringQ
 
-	ciphertextNTT := ctOut.Value0.IsNTT
+	ciphertextNTT := ctOut.Value["0"].IsNTT
 
 	encryptor.ternarySampler.ReadLvl(levelQ, poolQ0)
 	ringQ.NTTLvl(levelQ, poolQ0, poolQ0)
 	ringQ.MFormLvl(levelQ, poolQ0, poolQ0)
 
 	// ct0 = u*pk0
-	ringQ.MulCoeffsMontgomeryLvl(levelQ, poolQ0, encryptor.pk.Value[0].Q, ctOut.Value0)
+	ringQ.MulCoeffsMontgomeryLvl(levelQ, poolQ0, pk.Value[0].Q, ctOut.Value["0"])
 	// ct1 = u*pk1
-	ringQ.MulCoeffsMontgomeryLvl(levelQ, poolQ0, encryptor.pk.Value[1].Q, ctOut.Value[id])
+	ringQ.MulCoeffsMontgomeryLvl(levelQ, poolQ0, pk.Value[1].Q, ctOut.Value[id])
 
 	if ciphertextNTT {
 
@@ -85,41 +84,41 @@ func (encryptor *Encryptor) Encrypt(plaintext *rlwe.Plaintext, ctOut *Ciphertext
 		if !plaintext.Value.IsNTT {
 			ringQ.AddLvl(levelQ, poolQ0, plaintext.Value, poolQ0)
 			ringQ.NTTLvl(levelQ, poolQ0, poolQ0)
-			ringQ.AddLvl(levelQ, ctOut.Value0, poolQ0, ctOut.Value0)
+			ringQ.AddLvl(levelQ, ctOut.Value["0"], poolQ0, ctOut.Value["0"])
 		} else {
 			ringQ.NTTLvl(levelQ, poolQ0, poolQ0)
-			ringQ.AddLvl(levelQ, ctOut.Value0, poolQ0, ctOut.Value0)
-			ringQ.AddLvl(levelQ, ctOut.Value0, plaintext.Value, ctOut.Value0)
+			ringQ.AddLvl(levelQ, ctOut.Value["0"], poolQ0, ctOut.Value["0"])
+			ringQ.AddLvl(levelQ, ctOut.Value["0"], plaintext.Value, ctOut.Value["0"])
 		}
 
 	} else {
 
-		ringQ.InvNTTLvl(levelQ, ctOut.Value0, ctOut.Value0)
+		ringQ.InvNTTLvl(levelQ, ctOut.Value["0"], ctOut.Value["0"])
 		ringQ.InvNTTLvl(levelQ, ctOut.Value[id], ctOut.Value[id])
 
 		// ct[0] = pk[0]*u + e0
-		encryptor.gaussianSampler.ReadAndAddLvl(ctOut.Level(), ctOut.Value0)
+		encryptor.gaussianSampler.ReadAndAddLvl(ctOut.Level(), ctOut.Value["0"])
 
 		// ct[1] = pk[1]*u + e1
 		encryptor.gaussianSampler.ReadAndAddLvl(ctOut.Level(), ctOut.Value[id])
 
 		if !plaintext.Value.IsNTT {
-			ringQ.AddLvl(levelQ, ctOut.Value0, plaintext.Value, ctOut.Value0)
+			ringQ.AddLvl(levelQ, ctOut.Value["0"], plaintext.Value, ctOut.Value["0"])
 		} else {
 			ringQ.InvNTTLvl(levelQ, plaintext.Value, poolQ0)
-			ringQ.AddLvl(levelQ, ctOut.Value0, poolQ0, ctOut.Value0)
+			ringQ.AddLvl(levelQ, ctOut.Value["0"], poolQ0, ctOut.Value["0"])
 		}
 	}
 
-	ctOut.Value[id].IsNTT = ctOut.Value0.IsNTT
+	ctOut.Value[id].IsNTT = ctOut.Value["0"].IsNTT
 
-	ctOut.Value0.Coeffs = ctOut.Value0.Coeffs[:levelQ+1]
+	ctOut.Value["0"].Coeffs = ctOut.Value["0"].Coeffs[:levelQ+1]
 	ctOut.Value[id].Coeffs = ctOut.Value[id].Coeffs[:levelQ+1]
 
 }
 
 // NewEncryptor instatiates a new generic RLWE Encryptor. The key argument can
 // be either a *rlwe.PublicKey or a *rlwe.SecretKey.
-func NewEncryptor(params Parameters, key *PublicKey) *Encryptor {
-	return &Encryptor{newEncryptorBase(params), key}
+func NewEncryptor(params Parameters) *Encryptor {
+	return &Encryptor{newEncryptorBase(params)}
 }
