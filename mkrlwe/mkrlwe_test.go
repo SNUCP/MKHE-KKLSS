@@ -18,7 +18,24 @@ import (
 var flagParamString = flag.String("params", "", "specify the test cryptographic parameters as a JSON string. Overrides -short and -long.")
 
 // TestParams is a set of test parameters for the correctness of the rlwe pacakge.
-var TestParams = []rlwe.ParametersLiteral{rlwe.TestPN12QP109, rlwe.TestPN13QP218, rlwe.TestPN14QP438, rlwe.TestPN15QP880}
+
+var PN16QP1761 = rlwe.ParametersLiteral{
+	LogN: 16,
+	Q: []uint64{0x80000000080001, 0x2000000a0001, 0x2000000e0001, 0x1fffffc20001, // 55 + 33 x 45
+		0x200000440001, 0x200000500001, 0x200000620001, 0x1fffff980001,
+		0x2000006a0001, 0x1fffff7e0001, 0x200000860001, 0x200000a60001,
+		0x200000aa0001, 0x200000b20001, 0x200000c80001, 0x1fffff360001,
+		0x200000e20001, 0x1fffff060001, 0x200000fe0001, 0x1ffffede0001,
+		0x1ffffeca0001, 0x1ffffeb40001, 0x200001520001, 0x1ffffe760001,
+		0x2000019a0001, 0x1ffffe640001, 0x200001a00001, 0x1ffffe520001,
+		0x200001e80001, 0x1ffffe0c0001, 0x1ffffdee0001, 0x200002480001,
+		0x1ffffdb60001, 0x200002560001},
+	P: []uint64{0x80000000440001, 0x7fffffffba0001, 0x80000000500001},
+	//, 0x7fffffffaa0001}, // 4 x 55
+	Sigma: rlwe.DefaultSigma,
+}
+
+var TestParams = []rlwe.ParametersLiteral{rlwe.TestPN12QP109, rlwe.TestPN13QP218, rlwe.TestPN14QP438, rlwe.TestPN15QP880, PN16QP1761}
 
 func testString(params Parameters, opname string) string {
 	return fmt.Sprintf("%slogN=%d/logQ=%d/logP=%d/#Qi=%d/#Pi=%d",
@@ -497,7 +514,7 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 		levelP := params.PCount() - 1
 		sk := kgen.GenSecretKey(id)
 		pk := kgen.GenPublicKey(sk)
-		plaintext := rlwe.NewPlaintext(params.Parameters, levelQ)
+		plaintext := rlwe.NewPlaintext(params.Parameters, levelQ-1)
 		plaintext.Value.IsNTT = true
 		encryptor := NewEncryptor(params)
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())

@@ -29,14 +29,12 @@ var printPrecisionStats = flag.Bool("print-precision", false, "print precision s
 var minPrec float64 = 15.0
 
 func GetTestName(params Parameters, opname string) string {
-	return fmt.Sprintf("%slogN=%d/LogSlots=%d/logQP=%d/levels=%d/a=%d/b=%d",
+	return fmt.Sprintf("%slogN=%d/LogSlots=%d/logQP=%d/levels=%d/",
 		opname,
 		params.LogN(),
 		params.LogSlots(),
 		params.LogQP(),
-		params.MaxLevel()+1,
-		params.PCount(),
-		params.Beta())
+		params.MaxLevel()+1)
 }
 
 type testParams struct {
@@ -56,15 +54,24 @@ type testParams struct {
 
 func TestCKKS(t *testing.T) {
 
-	defaultParams := ckks.DefaultParams[:4]                                      // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
-	defaultParams = append(ckks.DefaultParams, ckks.DefaultPostQuantumParams...) // the long test suite runs for all default parameters
+	//defaultParams := ckks.DefaultParams[3] // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
+	//defaultParams = append(ckks.DefaultParams, ckks.DefaultPostQuantumParams...) // the long test suite runs for all default parameters
+
+	defaultParams := []ckks.ParametersLiteral{ckks.PN15QP880}
 
 	for _, defaultParam := range defaultParams {
 		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
+
+		if ckksParams.PCount() < 2 {
+			continue
+		}
+
 		params := NewParameters(ckksParams)
+
 		if err != nil {
 			panic(err)
 		}
+
 		var testContext *testParams
 		idset := mkrlwe.NewIDSet()
 		idset.Add("user1")
@@ -237,13 +244,6 @@ func testEvaluatorMul(testContext *testParams, t *testing.T) {
 
 	t.Run(GetTestName(testContext.params, "Evaluator/Mul/CtCt/"), func(t *testing.T) {
 		params := testContext.params
-		msg1, ct1 := newTestVectors(testContext, "user1", complex(-1, -1), complex(1, 1), t)
-		msg2, ct2 := newTestVectors(testContext, "user2", complex(-1, -1), complex(1, 1), t)
-		msg3 := NewMessage(params)
-
-		for i := range msg3.Value {
-			msg3.Value[i] = msg1.Value[i] * msg2.Value[i]
-		}
 
 		user1 := "user1"
 		user2 := "user2"
@@ -253,7 +253,16 @@ func testEvaluatorMul(testContext *testParams, t *testing.T) {
 		idset1.Add(user1)
 		idset2.Add(user2)
 
+		msg1, ct1 := newTestVectors(testContext, user1, complex(0.1, 0.1), complex(0.5, 0.5), t)
+		msg2, ct2 := newTestVectors(testContext, user2, complex(0.1, 0.1), complex(0.5, 0.5), t)
+		msg3 := NewMessage(params)
+
+		for i := range msg3.Value {
+			msg3.Value[i] = msg1.Value[i] * msg2.Value[i]
+		}
+
 		ct3 := testContext.evaluator.MulRelinNew(ct1, ct2, testContext.rlkSet)
+		testContext.evaluator.Rescale(ct3, params.Scale(), ct3)
 
 		msg1Out := testContext.decryptor.Decrypt(ct1, testContext.skSet)
 		msg2Out := testContext.decryptor.Decrypt(ct2, testContext.skSet)
