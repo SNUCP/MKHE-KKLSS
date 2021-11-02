@@ -189,7 +189,6 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) {
 	params := keygen.params
 	ringQ := params.RingQ()
-	ringQP := params.RingQP()
 	levelQ, levelP := params.QCount()-1, params.PCount()-1
 	alpha := params.Alpha()
 	beta := params.Beta(levelQ)
@@ -212,6 +211,8 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 	for i := 0; i < beta; i++ {
 
 		// e
+
+		ringQP := params.RingQP()
 		keygen.gaussianSamplerQ.ReadLvl(levelQ, swk.Value[i].Q)
 		ringQP.ExtendBasisSmallNormAndCenter(swk.Value[i].Q, levelP, nil, swk.Value[i].P)
 		ringQP.NTTLvl(levelQ, levelP, swk.Value[i], swk.Value[i])

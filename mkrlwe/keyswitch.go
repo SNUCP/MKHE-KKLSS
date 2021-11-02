@@ -11,6 +11,31 @@ type KeySwitcher struct {
 	swkPool   *SwitchingKey
 }
 
+// DecomposeSingleNTT takes the input polynomial c2 (c2NTT and c2InvNTT, respectively in the NTT and out of the NTT domain)
+// modulo q_alpha_beta, and returns the result on c2QiQ are c2QiP the receiver polynomials
+// respectively mod Q and mod P (in the NTT domain)
+func (ks *KeySwitcher) DecomposeSingleNTT(levelQ, levelP, alpha, beta int, c2NTT, c2InvNTT, c2QiQ, c2QiP *ring.Poly) {
+
+	ringQ := ks.Parameters.RingQ()
+	ringP := ks.Parameters.RingP()
+
+	ks.Decomposer.DecomposeAndSplit(levelQ, levelP, alpha, beta, c2InvNTT, c2QiQ, c2QiP)
+
+	p0idxst := beta * (alpha)
+	p0idxed := p0idxst + 1
+
+	// c2_qi = cx mod qi mod qi
+	for x := 0; x < levelQ+1; x++ {
+		if p0idxst <= x && x < p0idxed {
+			copy(c2QiQ.Coeffs[x], c2NTT.Coeffs[x])
+		} else {
+			ring.NTT(c2QiQ.Coeffs[x], c2QiQ.Coeffs[x], ringQ.N, ringQ.NttPsi[x], ringQ.Modulus[x], ringQ.MredParams[x], ringQ.BredParams[x])
+		}
+	}
+	// c2QiP = c2 mod qi mod pj
+	ringP.NTTLvl(levelP, c2QiP, c2QiP)
+}
+
 func NewKeySwitcher(params Parameters) *KeySwitcher {
 	ks := new(KeySwitcher)
 	ks.KeySwitcher = *rlwe.NewKeySwitcher(params.Parameters)

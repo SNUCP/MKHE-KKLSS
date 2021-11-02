@@ -18,7 +18,7 @@ func NewParameters(params rlwe.Parameters) Parameters {
 	ringQP := params.RingQP()
 	levelQ := params.QCount() - 1
 	levelP := params.PCount() - 1
-	alpha := params.PCount()
+	alpha := params.PCount() / 2
 	beta := int(math.Ceil(float64(levelQ+1) / float64(alpha)))
 
 	prng, err := utils.NewPRNG()
@@ -49,7 +49,7 @@ func NewParameters(params rlwe.Parameters) Parameters {
 }
 
 func (params Parameters) Alpha() int {
-	return params.PCount()
+	return params.PCount() / 2
 }
 
 func (params Parameters) Beta(levelQ int) int {

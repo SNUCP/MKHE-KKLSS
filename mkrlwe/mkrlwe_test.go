@@ -61,6 +61,7 @@ func TestMKRLWE(t *testing.T) {
 
 		testDecompose(kgen, t)
 		testInternalProduct(kgen, t)
+		testHadamardProduct(kgen, t)
 		testRelinearize(kgen, t)
 
 	}
@@ -97,6 +98,7 @@ func log2OfInnerSum(level int, ringQ *ring.Ring, poly *ring.Poly) (logSum int) {
 		smallNorm = smallNorm && (sumRNS[0] == sumRNS[i])
 	}
 
+	smallNorm = false
 	if !smallNorm {
 		var qi uint64
 		var crtReconstruction *big.Int
@@ -441,51 +443,12 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		users := NewIDSet()
 		users.Add(id)
 
-		ringQ := params.RingQ()
 		levelQ := params.QCount() - 1
 
-		level := levelQ
-
-		sk := kgen.GenSecretKey(id)
-		pk := kgen.GenPublicKey(sk)
-		pt := rlwe.NewPlaintext(params.Parameters, level)
-		pt.Value.IsNTT = true
-		enc := NewEncryptor(params)
-		ct := NewCiphertextNTT(params, users, level)
-		enc.Encrypt(pt, pk, ct)
-
-		//generate sg
-		sg := NewSwitchingKey(params)
-		kgen.GenSwitchingKey(sk, sg)
-
-		//tmp = Inter(c, sg)
-		ks := NewKeySwitcher(params)
-		tmp := ringQ.NewPolyLvl(level)
-		tmp.IsNTT = true
-		ks.InternalProduct(level, ct.Value["0"], sg, tmp)
-
-		//tmp2 = c*s
-		ringQ.MulCoeffsMontgomeryAndSubLvl(ct.Level(), sk.Value.Q, ct.Value["0"], tmp)
-		ringQ.InvNTTLvl(level, tmp, tmp)
-
-		//check errors
-		require.GreaterOrEqual(t, 10+params.LogN(), log2OfInnerSum(tmp.Level(), params.RingQ(), tmp))
-	})
-
-	t.Run(testString(params, "InternalProductMinLevel/"), func(t *testing.T) {
-
-		if params.PCount() == 0 {
-			t.Skip()
-		}
-
-		var id string = "tetsUser1"
-		users := NewIDSet()
-		users.Add(id)
-
 		ringQ := params.RingQ()
 		sk := kgen.GenSecretKey(id)
 		pk := kgen.GenPublicKey(sk)
-		plaintext := rlwe.NewPlaintext(params.Parameters, 0)
+		plaintext := rlwe.NewPlaintext(params.Parameters, levelQ)
 		plaintext.Value.IsNTT = true
 		encryptor := NewEncryptor(params)
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
@@ -675,11 +638,6 @@ func testRelinearize(kgen *KeyGenerator, t *testing.T) {
 		ks := NewKeySwitcher(params)
 		ks.MulAndRelin(ct1, ct2, rlkSet, ct3)
 
-		ct4 := NewCiphertextNTT(params, idset, level)
-		ringQ.AddLvl(level, ct1.Value["0"], ct2.Value["0"], ct4.Value["0"])
-		ringQ.AddLvl(level, ct4.Value[user1], ct1.Value[user1], ct4.Value[user1])
-		ringQ.AddLvl(level, ct4.Value[user2], ct2.Value[user2], ct4.Value[user2])
-
 		dec.Decrypt(ct1, skSet, pt)
 		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
 		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
@@ -688,14 +646,78 @@ func testRelinearize(kgen *KeyGenerator, t *testing.T) {
 		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
 		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
 
-		dec.Decrypt(ct4, skSet, pt)
-		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
-		require.GreaterOrEqual(t, 10+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
-
 		dec.Decrypt(ct3, skSet, pt)
 		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
-		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
+		require.GreaterOrEqual(t, 2*(9+params.LogN()), log2OfInnerSum(level, ringQ, pt.Value))
 
+	})
+
+}
+
+func testHadamardProduct(kgen *KeyGenerator, t *testing.T) {
+
+	// Checks that internal product works properly
+	// 1) generate two pk (-as+e, a)
+	// 2) generate sg
+	// 3) check Interal(-as+e, sg) similar to -as^2
+
+	params := kgen.params
+
+	t.Run(testString(params, "HadamardProductMaxLevel/"), func(t *testing.T) {
+
+		if params.PCount() == 0 {
+			t.Skip()
+		}
+
+		var id string = "tetsUser1"
+		users := NewIDSet()
+		users.Add(id)
+
+		ringQ := params.RingQ()
+		levelQ := params.QCount() - 1
+
+		level := levelQ
+
+		sk := kgen.GenSecretKey(id)
+		pk := kgen.GenPublicKey(sk)
+		pt := rlwe.NewPlaintext(params.Parameters, level)
+		pt.Value.IsNTT = true
+		enc := NewEncryptor(params)
+		ct := NewCiphertextNTT(params, users, level)
+		enc.Encrypt(pt, pk, ct)
+
+		//generate sg
+		sg := NewSwitchingKey(params)
+		kgen.GenSwitchingKey(sk, sg)
+
+		ks := NewKeySwitcher(params)
+
+		cd := NewSwitchingKey(params)
+		ks.Decompose(level, ct.Value["0"], cd)
+
+		beta := params.Beta(level)
+		ringQP := params.RingQP()
+		levelP := params.PCount() - 1
+
+		for i := 0; i < beta; i++ {
+			ringQP.MulCoeffsMontgomeryLvl(level, levelP, cd.Value[i], sg.Value[i], sg.Value[i])
+			ringQP.MFormLvl(level, levelP, sg.Value[i], sg.Value[i])
+		}
+
+		//tmp = Inter(c, csg)
+		tmp := ringQ.NewPolyLvl(level)
+		tmp.IsNTT = true
+		ks.InternalProduct(level, ct.Value["0"], sg, tmp)
+
+		//tmp2 = c*s
+		tmp2 := ringQ.NewPolyLvl(level)
+		ringQ.MulCoeffsMontgomeryLvl(level, ct.Value["0"], sk.Value.Q, tmp2)
+		ringQ.MFormLvl(level, tmp2, tmp2)
+		ringQ.MulCoeffsMontgomeryAndSubLvl(level, ct.Value["0"], tmp2, tmp)
+		ringQ.InvNTTLvl(level, tmp, tmp)
+
+		//check errors
+		require.GreaterOrEqual(t, 10+2*params.LogN(), log2OfInnerSum(tmp.Level(), params.RingQ(), tmp))
 	})
 
 }
