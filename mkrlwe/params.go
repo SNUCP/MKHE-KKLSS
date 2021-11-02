@@ -16,8 +16,10 @@ func NewParameters(params rlwe.Parameters) Parameters {
 	ret := new(Parameters)
 	ret.Parameters = params
 	ringQP := params.RingQP()
-	levelQ, levelP := params.QCount()-1, params.PCount()-1
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+	levelQ := params.QCount() - 1
+	levelP := params.PCount() - 1
+	alpha := params.PCount()
+	beta := int(math.Ceil(float64(levelQ+1) / float64(alpha)))
 
 	prng, err := utils.NewPRNG()
 	if err != nil {
@@ -44,4 +46,14 @@ func NewParameters(params rlwe.Parameters) Parameters {
 		ringQP.MFormLvl(levelQ, levelP, ret.CRS[1].Value[i], ret.CRS[1].Value[i])
 	}
 	return *ret
+}
+
+func (params Parameters) Alpha() int {
+	return params.PCount()
+}
+
+func (params Parameters) Beta(levelQ int) int {
+	alpha := params.Alpha()
+	beta := int(math.Ceil(float64(levelQ+1) / float64(alpha)))
+	return beta
 }

@@ -1,7 +1,6 @@
 package mkrlwe
 
 import "github.com/ldsec/lattigo/v2/rlwe"
-import "math"
 
 // SecretKeySet is a type for generic Multikey RLWE secret keys.
 type SecretKey struct {
@@ -144,8 +143,7 @@ func NewPublicKey(params Parameters, id string) *PublicKey {
 
 //
 func NewSwitchingKey(params Parameters) *SwitchingKey {
-	levelQ, levelP := params.QCount()-1, params.PCount()-1
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+	beta := params.Beta(params.QCount() - 1)
 	ringQP := params.RingQP()
 	swk := new(SwitchingKey)
 	swk.Value = make([]rlwe.PolyQP, beta)

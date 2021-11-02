@@ -2,7 +2,6 @@ package mkrlwe
 
 import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/ring"
-import "math"
 
 // KeySwitcher is a struct for RLWE key-switching.
 type KeySwitcher struct {
@@ -42,9 +41,9 @@ func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly, ad *SwitchingKey) {
 		panic("Cannot InternalProduct: a should be in NTT")
 	}
 
-	alpha := params.PCount()
-	levelP := alpha - 1
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+	alpha := params.Alpha()
+	levelP := params.PCount() - 1
+	beta := params.Beta(levelQ)
 
 	// Key switching with CRT decomposition for the Qi
 	for i := 0; i < beta; i++ {
@@ -72,45 +71,22 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 		panic("Cannot InternalProduct: a should be in NTT")
 	}
 
-	alpha := len(bg.Value[0].P.Coeffs)
-	levelP := alpha - 1
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
-	QiOverF := ks.Parameters.QiOverflowMargin(levelQ) >> 1
-	PiOverF := ks.Parameters.PiOverflowMargin(levelP) >> 1
+	alpha := params.Alpha()
+	levelP := params.PCount() - 1
+	beta := params.Beta(levelQ)
 
 	c0QP := ks.Pool[0]
 	c1QP := ks.Pool[1]
 
-	reduce := 0
-
 	// Key switching with CRT decomposition for the Qi
 	for i := 0; i < beta; i++ {
-
 		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, aNTT, aInvNTT, c0QP.Q, c0QP.P)
 
 		if i == 0 {
-			ringQP.MulCoeffsMontgomeryConstantLvl(levelQ, levelP, bg.Value[i], c0QP, c1QP)
+			ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, bg.Value[i], c0QP, c1QP)
 		} else {
-			ringQP.MulCoeffsMontgomeryConstantAndAddNoModLvl(levelQ, levelP, bg.Value[i], c0QP, c1QP)
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, bg.Value[i], c0QP, c1QP)
 		}
-
-		if reduce%QiOverF == QiOverF-1 {
-			ringQ.ReduceLvl(levelQ, c1QP.Q, c1QP.Q)
-		}
-
-		if reduce%PiOverF == PiOverF-1 {
-			ringP.ReduceLvl(levelP, c1QP.P, c1QP.P)
-		}
-
-		reduce++
-	}
-
-	if reduce%QiOverF != 0 {
-		ringQ.ReduceLvl(levelQ, c1QP.Q, c1QP.Q)
-	}
-
-	if reduce%PiOverF != 0 {
-		ringP.ReduceLvl(levelP, c1QP.P, c1QP.P)
 	}
 
 	// rescale by P
@@ -148,7 +124,7 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 	ringQ := params.RingQ()
 
 	levelP := params.PCount() - 1
-	beta := int(math.Ceil(float64(level+1) / float64(levelP+1)))
+	beta := params.Beta(level)
 
 	x := NewSwitchingKey(params)
 	y := NewSwitchingKey(params)

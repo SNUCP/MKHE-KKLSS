@@ -3,7 +3,6 @@ package mkrlwe
 import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/ring"
 import "github.com/ldsec/lattigo/v2/utils"
-import "math"
 import "math/big"
 
 // KeyGenerator is a structure that stores the elements required to create new keys,
@@ -150,7 +149,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 
 	//rlk = (b, d, v)
 	rlk = NewRelinearizationKey(keygen.params, id)
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+	beta := params.Beta(levelQ)
 
 	//set CRS
 	a := keygen.params.CRS[0]
@@ -192,8 +191,8 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 	ringQ := params.RingQ()
 	ringQP := params.RingQP()
 	levelQ, levelP := params.QCount()-1, params.PCount()-1
-	alpha := levelP + 1
-	beta := int(math.Ceil(float64(levelQ+1) / float64(levelP+1)))
+	alpha := params.Alpha()
+	beta := params.Beta(levelQ)
 
 	var pBigInt *big.Int
 	if levelP == keygen.params.PCount()-1 {
@@ -217,7 +216,6 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 		ringQP.ExtendBasisSmallNormAndCenter(swk.Value[i].Q, levelP, nil, swk.Value[i].P)
 		ringQP.NTTLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
-
 		// e + (skIn * P) * (q_star * q_tild) mod QP
 		//
 		// q_prod = prod(q[i*alpha+j])
