@@ -320,7 +320,7 @@ func (eval *Evaluator) newCiphertextBinary(op0, op1 *Ciphertext) (ctOut *Ciphert
 }
 
 // Add adds op0 to op1 and returns the result in ctOut.
-func (eval *Evaluator) Add(op0, op1 *Ciphertext, ctOut *Ciphertext) {
+func (eval *Evaluator) add(op0, op1 *Ciphertext, ctOut *Ciphertext) {
 	eval.evaluateInPlace(op0, op1, ctOut, eval.params.RingQ().AddLvl)
 
 }
@@ -328,12 +328,12 @@ func (eval *Evaluator) Add(op0, op1 *Ciphertext, ctOut *Ciphertext) {
 // AddNew adds op0 to op1 and returns the result in a newly created element.
 func (eval *Evaluator) AddNew(op0, op1 *Ciphertext) (ctOut *Ciphertext) {
 	ctOut = eval.newCiphertextBinary(op0, op1)
-	eval.Add(op0, op1, ctOut)
+	eval.add(op0, op1, ctOut)
 	return
 }
 
 // Sub subtracts op1 from op0 and returns the result in ctOut.
-func (eval *Evaluator) Sub(op0, op1 *Ciphertext, ctOut *Ciphertext) {
+func (eval *Evaluator) sub(op0, op1 *Ciphertext, ctOut *Ciphertext) {
 
 	eval.evaluateInPlace(op0, op1, ctOut, eval.params.RingQ().SubLvl)
 
@@ -352,7 +352,7 @@ func (eval *Evaluator) Sub(op0, op1 *Ciphertext, ctOut *Ciphertext) {
 // SubNew subtracts op1 from op0 and returns the result in a newly created element.
 func (eval *Evaluator) SubNew(op0, op1 *Ciphertext) (ctOut *Ciphertext) {
 	ctOut = eval.newCiphertextBinary(op0, op1)
-	eval.Sub(op0, op1, ctOut)
+	eval.sub(op0, op1, ctOut)
 
 	return
 }
@@ -422,7 +422,7 @@ func (eval *Evaluator) RescaleNew(ct0 *Ciphertext, threshold float64) (ctOut *Ci
 // The procedure will panic if the evaluator was not created with an relinearization key.
 func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *mkrlwe.RelinearizationKeySet) (ctOut *Ciphertext) {
 	ctOut = NewCiphertext(eval.params, op0.IDSet().Union(op1.IDSet()), utils.MinInt(op0.Level(), op1.Level()), 0)
-	eval.MulRelin(op0, op1, rlkSet, ctOut)
+	eval.mulRelin(op0, op1, rlkSet, ctOut)
 	return
 }
 
@@ -430,7 +430,7 @@ func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relinear
 // The procedure will panic if either op0.Degree or op1.Degree > 1.
 // The procedure will panic if ctOut.Degree != op0.Degree + op1.Degree.
 // The procedure will panic if the evaluator was not created with an relinearization key.
-func (eval *Evaluator) MulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.RelinearizationKeySet, ctOut *Ciphertext) {
+func (eval *Evaluator) mulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.RelinearizationKeySet, ctOut *Ciphertext) {
 
 	level := utils.MinInt(utils.MinInt(op0.Level(), op1.Level()), ctOut.Level())
 
@@ -440,4 +440,5 @@ func (eval *Evaluator) MulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 
 	ctOut.Scale = op0.ScalingFactor() * op1.ScalingFactor()
 	eval.ksw.MulAndRelin(op0.Ciphertext, op1.Ciphertext, rlkSet, ctOut.Ciphertext)
+	eval.Rescale(ctOut, eval.params.Scale(), ctOut)
 }

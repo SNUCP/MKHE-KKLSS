@@ -76,6 +76,8 @@ func TestCKKS(t *testing.T) {
 		idset := mkrlwe.NewIDSet()
 		idset.Add("user1")
 		idset.Add("user2")
+		idset.Add("user3")
+		idset.Add("user4")
 
 		if testContext, err = genTestParams(params, idset); err != nil {
 			panic(err)
@@ -247,39 +249,33 @@ func testEvaluatorMul(testContext *testParams, t *testing.T) {
 
 		user1 := "user1"
 		user2 := "user2"
-		idset1 := mkrlwe.NewIDSet()
-		idset2 := mkrlwe.NewIDSet()
+		user3 := "user3"
+		user4 := "user4"
 
-		idset1.Add(user1)
-		idset2.Add(user2)
+		msg1, ct1 := newTestVectors(testContext, user1, complex(0.5, 0.5), complex(1.0, 1.0), t)
+		msg2, ct2 := newTestVectors(testContext, user2, complex(0.5, 0.5), complex(1.0, 1.0), t)
+		msg3, ct3 := newTestVectors(testContext, user3, complex(0.5, 0.5), complex(1.0, 1.0), t)
+		msg4, ct4 := newTestVectors(testContext, user4, complex(0.5, 0.5), complex(1.0, 1.0), t)
 
-		msg1, ct1 := newTestVectors(testContext, user1, complex(0.1, 0.1), complex(0.5, 0.5), t)
-		msg2, ct2 := newTestVectors(testContext, user2, complex(0.1, 0.1), complex(0.5, 0.5), t)
-		msg3 := NewMessage(params)
+		msgRes := NewMessage(params)
 
 		for i := range msg3.Value {
-			msg3.Value[i] = msg1.Value[i] * msg2.Value[i]
+			msgRes.Value[i] = (msg1.Value[i] * msg2.Value[i] * msg3.Value[i] * msg4.Value[i])
+			msgRes.Value[i] *= (msg1.Value[i] * msg2.Value[i] * msg3.Value[i] * msg4.Value[i])
 		}
 
-		ct3 := testContext.evaluator.MulRelinNew(ct1, ct2, testContext.rlkSet)
-		testContext.evaluator.Rescale(ct3, params.Scale(), ct3)
+		rlkSet := testContext.rlkSet
+		eval := testContext.evaluator
 
-		msg1Out := testContext.decryptor.Decrypt(ct1, testContext.skSet)
-		msg2Out := testContext.decryptor.Decrypt(ct2, testContext.skSet)
-		msg3Out := testContext.decryptor.Decrypt(ct3, testContext.skSet)
+		ctTmp1 := eval.MulRelinNew(ct1, ct2, rlkSet)
+		ctTmp2 := eval.MulRelinNew(ct3, ct4, rlkSet)
+		ctRes := eval.MulRelinNew(ctTmp1, ctTmp2, rlkSet)
+		ctRes = eval.MulRelinNew(ctRes, ctRes, rlkSet)
 
-		for i := range msg1Out.Value {
-			delta := msg1.Value[i] - msg1Out.Value[i]
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+10, math.Log2(math.Abs(real(delta))))
-		}
+		msgOut := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
 
-		for i := range msg2Out.Value {
-			delta := msg2.Value[i] - msg2Out.Value[i]
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+10, math.Log2(math.Abs(real(delta))))
-		}
-
-		for i := range msg3Out.Value {
-			delta := msg3.Value[i] - msg3Out.Value[i]
+		for i := range msgOut.Value {
+			delta := msgRes.Value[i] - msgOut.Value[i]
 			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+10, math.Log2(math.Abs(real(delta))))
 		}
 
