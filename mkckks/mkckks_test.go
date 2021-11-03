@@ -54,10 +54,10 @@ type testParams struct {
 
 func TestCKKS(t *testing.T) {
 
-	//defaultParams := ckks.DefaultParams[3] // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
-	//defaultParams = append(ckks.DefaultParams, ckks.DefaultPostQuantumParams...) // the long test suite runs for all default parameters
+	defaultParams := ckks.DefaultParams                                          // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
+	defaultParams = append(ckks.DefaultParams, ckks.DefaultPostQuantumParams...) // the long test suite runs for all default parameters
 
-	defaultParams := []ckks.ParametersLiteral{ckks.PN15QP880}
+	//defaultParams := []ckks.ParametersLiteral{ckks.PN15QP880}
 
 	for _, defaultParam := range defaultParams {
 		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
@@ -270,17 +270,17 @@ func testEvaluatorMul(testContext *testParams, t *testing.T) {
 
 		for i := range msg1Out.Value {
 			delta := msg1.Value[i] - msg1Out.Value[i]
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+8, math.Log2(math.Abs(real(delta))))
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+10, math.Log2(math.Abs(real(delta))))
 		}
 
 		for i := range msg2Out.Value {
 			delta := msg2.Value[i] - msg2Out.Value[i]
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+8, math.Log2(math.Abs(real(delta))))
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+10, math.Log2(math.Abs(real(delta))))
 		}
 
 		for i := range msg3Out.Value {
 			delta := msg3.Value[i] - msg3Out.Value[i]
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+8, math.Log2(math.Abs(real(delta))))
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+10, math.Log2(math.Abs(real(delta))))
 		}
 
 	})
