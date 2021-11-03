@@ -379,7 +379,7 @@ func NewDecomposer(ringQ, ringP *ring.Ring) (decomposer *Decomposer) {
 
 		P := ringP.Modulus[:lvlP+2]
 
-		alpha := len(P)
+		alpha := int(math.Ceil(float64(len(P)) / 2.0))
 		beta := int(math.Ceil(float64(len(Q)) / float64(alpha)))
 
 		xalpha := make([]int, beta)
@@ -453,7 +453,7 @@ func (decomposer *Decomposer) DecomposeAndSplit(levelQ, levelP, alpha, beta int,
 		// Otherwise, we apply a fast exact base conversion for the reconstruction
 	} else {
 
-		params := decomposer.modUpParams[alpha-2][beta][decompLvl]
+		params := decomposer.modUpParams[2*alpha-2][beta][decompLvl]
 
 		var v [8]uint64
 		var vi [8]float64

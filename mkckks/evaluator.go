@@ -439,7 +439,5 @@ func (eval *Evaluator) MulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 	}
 
 	ctOut.Scale = op0.ScalingFactor() * op1.ScalingFactor()
-	ks := mkrlwe.NewKeySwitcher(eval.params.Parameters)
-
-	ks.MulAndRelin(op0.Ciphertext, op1.Ciphertext, rlkSet, ctOut.Ciphertext)
+	eval.ksw.MulAndRelin(op0.Ciphertext, op1.Ciphertext, rlkSet, ctOut.Ciphertext)
 }

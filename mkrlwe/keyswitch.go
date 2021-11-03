@@ -133,15 +133,15 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 // The procedure will panic if the ksuator was not created with an relinearization key.
 func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
 
-	if op0.Level() != op1.Level() {
+	level := ctOut.Level()
+
+	if op0.Level() < level {
 		panic("Cannot MulAndRelin: op0 and op1 have different levels")
 	}
 
-	if ctOut.Level() != op0.Level() {
+	if ctOut.Level() < level {
 		panic("Cannot MulAndRelin: op0 and ctOut have different levels")
 	}
-
-	level := op0.Level()
 
 	idset0 := op0.IDSet()
 	idset1 := op1.IDSet()

@@ -30,10 +30,11 @@ var PN16QP1761 = rlwe.ParametersLiteral{
 		0x2000019a0001, 0x1ffffe640001, 0x200001a00001, 0x1ffffe520001,
 		0x200001e80001, 0x1ffffe0c0001, 0x1ffffdee0001, 0x200002480001,
 		0x1ffffdb60001, 0x200002560001},
-	P: []uint64{0x80000000440001, 0x7fffffffba0001, 0x80000000500001},
-	//, 0x7fffffffaa0001}, // 4 x 55
+	P:     []uint64{0x80000000440001, 0x7fffffffba0001, 0x80000000500001, 0x7fffffffaa0001}, // 4 x 55
 	Sigma: rlwe.DefaultSigma,
 }
+
+//var TestParams = []rlwe.ParametersLiteral{PN16QP1761}
 
 var TestParams = []rlwe.ParametersLiteral{rlwe.TestPN12QP109, rlwe.TestPN13QP218, rlwe.TestPN14QP438, rlwe.TestPN15QP880, PN16QP1761}
 
