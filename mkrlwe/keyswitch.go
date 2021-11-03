@@ -7,8 +7,9 @@ import "github.com/ldsec/lattigo/v2/ring"
 type KeySwitcher struct {
 	rlwe.KeySwitcher
 	Parameters
-	polyQPool [3]*ring.Poly
-	swkPool   *SwitchingKey
+	Decomposer *Decomposer
+	polyQPool  [3]*ring.Poly
+	swkPool    *SwitchingKey
 }
 
 // DecomposeSingleNTT takes the input polynomial c2 (c2NTT and c2InvNTT, respectively in the NTT and out of the NTT domain)
@@ -40,6 +41,7 @@ func NewKeySwitcher(params Parameters) *KeySwitcher {
 	ks := new(KeySwitcher)
 	ks.KeySwitcher = *rlwe.NewKeySwitcher(params.Parameters)
 	ks.Parameters = params
+	ks.Decomposer = NewDecomposer(params.RingQ(), params.RingP())
 
 	ringQ := params.RingQ()
 	ks.polyQPool = [3]*ring.Poly{ringQ.NewPoly(), ringQ.NewPoly(), ringQ.NewPoly()}
