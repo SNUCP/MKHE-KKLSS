@@ -17,7 +17,7 @@ type Parameters struct {
 func NewParameters(ckksParams ckks.Parameters) Parameters {
 
 	ret := new(Parameters)
-	ret.Parameters = mkrlwe.NewParameters(ckksParams.Parameters)
+	ret.Parameters = mkrlwe.NewParameters(ckksParams.Parameters, 2)
 	ret.logSlots = ckksParams.LogSlots()
 	ret.scale = ckksParams.Scale()
 

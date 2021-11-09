@@ -63,11 +63,13 @@ func TestMKRLWE(t *testing.T) {
 			panic(err)
 		}
 
-		if params.PCount() < 2 {
+		gamma := 2
+
+		if params.PCount() < gamma {
 			continue
 		}
 
-		mkparams := NewParameters(params)
+		mkparams := NewParameters(params, gamma)
 		kgen := NewKeyGenerator(mkparams)
 
 		testGenKeyPair(kgen, t)

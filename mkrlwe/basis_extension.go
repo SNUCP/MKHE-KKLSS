@@ -365,7 +365,7 @@ type Decomposer struct {
 }
 
 // NewDecomposer creates a new Decomposer.
-func NewDecomposer(ringQ, ringP *ring.Ring) (decomposer *Decomposer) {
+func NewDecomposer(ringQ, ringP *ring.Ring, gamma int) (decomposer *Decomposer) {
 	decomposer = new(Decomposer)
 
 	decomposer.ringQ = ringQ
@@ -379,7 +379,7 @@ func NewDecomposer(ringQ, ringP *ring.Ring) (decomposer *Decomposer) {
 
 		P := ringP.Modulus[:lvlP+2]
 
-		alpha := int(math.Ceil(float64(len(P)) / 2.0))
+		alpha := int(math.Ceil(float64(len(P)) / float64(gamma)))
 		beta := int(math.Ceil(float64(len(Q)) / float64(alpha)))
 
 		xalpha := make([]int, beta)

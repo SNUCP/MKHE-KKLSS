@@ -7,19 +7,23 @@ import "math"
 
 type Parameters struct {
 	rlwe.Parameters
-	CRS [2]*SwitchingKey
+	CRS   [2]*SwitchingKey
+	gamma int
 }
 
 // NewParameters takes rlwe Parameter as input, generate two CRSs
 // and then return mkrlwe parameter
-func NewParameters(params rlwe.Parameters) Parameters {
+func NewParameters(params rlwe.Parameters, gamma int) Parameters {
 	ret := new(Parameters)
 	ret.Parameters = params
+	ret.gamma = gamma
+
 	ringQP := params.RingQP()
 	levelQ := params.QCount() - 1
 	levelP := params.PCount() - 1
-	alpha := params.PCount() / 2
-	beta := int(math.Ceil(float64(levelQ+1) / float64(alpha)))
+
+	alpha := params.PCount() / gamma
+	beta := int(math.Ceil(float64(params.QCount()) / float64(alpha)))
 
 	prng, err := utils.NewPRNG()
 	if err != nil {
@@ -49,11 +53,15 @@ func NewParameters(params rlwe.Parameters) Parameters {
 }
 
 func (params Parameters) Alpha() int {
-	return params.PCount() / 2
+	return params.PCount() / params.gamma
 }
 
 func (params Parameters) Beta(levelQ int) int {
 	alpha := params.Alpha()
-	beta := int(math.Ceil(float64(levelQ+1) / float64(alpha)))
+	beta := int(math.Ceil(float64(params.QCount()) / float64(alpha)))
 	return beta
+}
+
+func (params Parameters) Gamma() int {
+	return params.gamma
 }

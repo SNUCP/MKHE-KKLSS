@@ -41,7 +41,7 @@ func NewKeySwitcher(params Parameters) *KeySwitcher {
 	ks := new(KeySwitcher)
 	ks.KeySwitcher = *rlwe.NewKeySwitcher(params.Parameters)
 	ks.Parameters = params
-	ks.Decomposer = NewDecomposer(params.RingQ(), params.RingP())
+	ks.Decomposer = NewDecomposer(params.RingQ(), params.RingP(), params.Gamma())
 
 	ringQ := params.RingQ()
 	ks.polyQPool = [3]*ring.Poly{ringQ.NewPoly(), ringQ.NewPoly(), ringQ.NewPoly()}
