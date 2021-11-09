@@ -100,8 +100,9 @@ func (keygen *KeyGenerator) GenPublicKey(sk *SecretKey) (pk *PublicKey) {
 	ringQP.ExtendBasisSmallNormAndCenter(pk.Value[0].Q, levelP, nil, pk.Value[0].P)
 	ringQP.NTTLvl(levelQ, levelP, pk.Value[0], pk.Value[0])
 
-	keygen.uniformSamplerQ.Read(pk.Value[1].Q)
-	keygen.uniformSamplerP.Read(pk.Value[1].P)
+	//set a to CRS[0][0]
+	pk.Value[1].Q.Copy(keygen.params.CRS[0].Value[0].Q)
+	pk.Value[1].P.Copy(keygen.params.CRS[0].Value[0].P)
 
 	ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, sk.Value, pk.Value[1], pk.Value[0])
 	return pk
