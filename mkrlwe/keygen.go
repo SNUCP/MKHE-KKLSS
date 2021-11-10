@@ -120,7 +120,7 @@ func (keygen *KeyGenerator) GenKeyPairSparse(hw int) (sk *SecretKey, pk *PublicK
 	return sk, keygen.GenPublicKey(sk)
 }
 
-func (keygen *KeyGenerator) genGaussianError(e rlwe.PolyQP) {
+func (keygen *KeyGenerator) GenGaussianError(e rlwe.PolyQP) {
 
 	levelQ := keygen.params.QCount() - 1
 	levelP := keygen.params.PCount() - 1
@@ -163,7 +163,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a.Value[i], sk.Value, b.Value[i])
 		ringQP.InvMFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
-		keygen.genGaussianError(tmp)
+		keygen.GenGaussianError(tmp)
 		ringQP.SubLvl(levelQ, levelP, tmp, b.Value[i], b.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, b.Value[i], b.Value[i])
 	}
