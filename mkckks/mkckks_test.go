@@ -103,6 +103,7 @@ func TestCKKS(t *testing.T) {
 		testEvaluatorMul(testContext, userList[:4], t)
 		testEvaluatorMul(testContext, userList[:8], t)
 		testEvaluatorMul(testContext, userList[:16], t)
+		testEvaluatorMul(testContext, userList[:32], t)
 	}
 }
 
@@ -267,7 +268,9 @@ func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) 
 	eval := testContext.evaluator
 
 	for i := range userList {
-		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], complex(0, 1.0/float64(numUsers)), complex(0, 1.0/float64(numUsers)))
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i],
+			complex(0.1/float64(numUsers), 1.0/float64(numUsers)),
+			complex(0.1/float64(numUsers), 1.0/float64(numUsers)))
 	}
 
 	ct := ctList[0]
