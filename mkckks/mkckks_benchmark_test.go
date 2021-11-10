@@ -24,7 +24,7 @@ func BenchmarkMKCKKS(b *testing.B) {
 		}
 
 		params := NewParameters(ckksParams)
-		maxUsers := 16
+		maxUsers := 32
 		userList := make([]string, maxUsers)
 		idset := mkrlwe.NewIDSet()
 
@@ -38,14 +38,16 @@ func BenchmarkMKCKKS(b *testing.B) {
 			panic(err)
 		}
 
-		benchRelinAndMul(testContext, userList[:2], b)
-		benchRelinAndMul(testContext, userList[:4], b)
-		benchRelinAndMul(testContext, userList[:8], b)
-		benchRelinAndMul(testContext, userList[:16], b)
+		benchMulAndRelin(testContext, userList[:2], b)
+		benchMulAndRelin(testContext, userList[:4], b)
+		benchMulAndRelin(testContext, userList[:8], b)
+		benchMulAndRelin(testContext, userList[:16], b)
+		benchMulAndRelin(testContext, userList[:32], b)
+
 	}
 }
 
-func benchRelinAndMul(testContext *testParams, userList []string, b *testing.B) {
+func benchMulAndRelin(testContext *testParams, userList []string, b *testing.B) {
 
 	numUsers := len(userList)
 	msgList := make([]*Message, numUsers)
@@ -58,13 +60,16 @@ func benchRelinAndMul(testContext *testParams, userList []string, b *testing.B) 
 		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], complex(-1, 1), complex(1, 1))
 	}
 
-	ctRes := ctList[0]
+	ct := ctList[0]
 
 	for i := range userList {
-		ctRes = eval.AddNew(ctRes, ctList[i])
+		ct = eval.AddNew(ct, ctList[i])
 	}
 
-	b.Run(GetTestName(testContext.params, "Evaluator/Mul/CtCt/"+strconv.Itoa(numUsers)), func(b *testing.B) {
-		ctRes = eval.MulRelinNew(ctRes, ctRes, rlkSet)
+	b.Run(GetTestName(testContext.params, "MKMulAndRelin: "+strconv.Itoa(numUsers)+"/ "), func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			eval.MulRelinNew(ct, ct, rlkSet)
+		}
+
 	})
 }
