@@ -3,6 +3,7 @@ package mkckks
 import (
 	"flag"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"mk-lattigo/mkrlwe"
@@ -76,27 +77,32 @@ func TestCKKS(t *testing.T) {
 			continue
 		}
 
-		params := NewParameters(ckksParams)
-
 		if err != nil {
 			panic(err)
 		}
 
-		var testContext *testParams
+		params := NewParameters(ckksParams)
+		maxUsers := 32
+		userList := make([]string, maxUsers)
 		idset := mkrlwe.NewIDSet()
-		idset.Add("user1")
-		idset.Add("user2")
-		idset.Add("user3")
-		idset.Add("user4")
 
+		for i := range userList {
+			userList[i] = "user" + strconv.Itoa(i)
+			idset.Add(userList[i])
+		}
+
+		var testContext *testParams
 		if testContext, err = genTestParams(params, idset); err != nil {
 			panic(err)
 		}
 
-		testEvaluatorAdd(testContext, t)
-		testEvaluatorSub(testContext, t)
-		testEvaluatorRescale(testContext, t)
-		//testEvaluatorMul(testContext, t)
+		//testEvaluatorAdd(testContext, t)
+		//testEvaluatorSub(testContext, t)
+		//testEvaluatorRescale(testContext, t)
+		testEvaluatorMul(testContext, userList[:2], t)
+		testEvaluatorMul(testContext, userList[:4], t)
+		testEvaluatorMul(testContext, userList[:8], t)
+		testEvaluatorMul(testContext, userList[:16], t)
 	}
 }
 
@@ -148,8 +154,6 @@ func newTestVectors(testContext *testParams, id string, a, b complex128) (msg *M
 	for i := 0; i < 1<<logSlots; i++ {
 		msg.Value[i] = complex(utils.RandFloat64(real(a), real(b)), utils.RandFloat64(imag(a), imag(b)))
 	}
-
-	msg.Value[0] = complex(0.607538, 0)
 
 	if testContext.encryptor != nil {
 		ciphertext = testContext.encryptor.EncryptMsgNew(msg, testContext.pkSet.GetPublicKey(id))
@@ -252,43 +256,44 @@ func testEvaluatorSub(testContext *testParams, t *testing.T) {
 
 }
 
-func testEvaluatorMul(testContext *testParams, t *testing.T) {
+func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) {
 
-	t.Run(GetTestName(testContext.params, "Evaluator/Mul/CtCt/"), func(t *testing.T) {
-		params := testContext.params
+	params := testContext.params
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
 
-		user1 := "user1"
-		user2 := "user2"
-		user3 := "user3"
-		user4 := "user4"
+	rlkSet := testContext.rlkSet
+	eval := testContext.evaluator
 
-		msg1, ct1 := newTestVectors(testContext, user1, complex(0.5, 0.5), complex(1.0, 1.0))
-		msg2, ct2 := newTestVectors(testContext, user2, complex(0.5, 0.5), complex(1.0, 1.0))
-		msg3, ct3 := newTestVectors(testContext, user3, complex(0.5, 0.5), complex(1.0, 1.0))
-		msg4, ct4 := newTestVectors(testContext, user4, complex(0.5, 0.5), complex(1.0, 1.0))
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], complex(0, 1.0/float64(numUsers)), complex(0, 1.0/float64(numUsers)))
+	}
 
-		msgRes := NewMessage(params)
+	ct := ctList[0]
+	msg := msgList[0]
 
-		for i := range msg3.Value {
-			msgRes.Value[i] = (msg1.Value[i] * msg2.Value[i] * msg3.Value[i] * msg4.Value[i])
-			msgRes.Value[i] *= (msg1.Value[i] * msg2.Value[i] * msg3.Value[i] * msg4.Value[i])
+	for i := range userList {
+		ct = eval.AddNew(ct, ctList[i])
+
+		for j := range msg.Value {
+			msg.Value[j] += msgList[i].Value[j]
 		}
+	}
 
-		rlkSet := testContext.rlkSet
-		eval := testContext.evaluator
+	for j := range msg.Value {
+		msg.Value[j] *= msg.Value[j]
+	}
 
-		ctTmp1 := eval.MulRelinNew(ct1, ct2, rlkSet)
-		ctTmp2 := eval.MulRelinNew(ct3, ct4, rlkSet)
-		ctRes := eval.MulRelinNew(ctTmp1, ctTmp2, rlkSet)
-		ctRes = eval.MulRelinNew(ctRes, ctRes, rlkSet)
+	t.Run(GetTestName(testContext.params, "MKMulAndRelin: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		ctRes := eval.MulRelinNew(ct, ct, rlkSet)
+		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
 
-		msgOut := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
-
-		for i := range msgOut.Value {
-			delta := msgRes.Value[i] - msgOut.Value[i]
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+10, math.Log2(math.Abs(real(delta))))
+		for i := range msgRes.Value {
+			delta := msgRes.Value[i] - msg.Value[i]
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(real(delta))))
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(imag(delta))))
 		}
-
 	})
 
 }
