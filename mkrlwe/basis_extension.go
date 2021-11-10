@@ -425,7 +425,7 @@ func NewDecomposer(ringQ, ringP *ring.Ring, gamma int) (decomposer *Decomposer) 
 
 // DecomposeAndSplit decomposes a polynomial p(x) in basis Q, reduces it modulo qi, and returns
 // the result in basis QP separately.
-func (decomposer *Decomposer) DecomposeAndSplit(levelQ, levelP, alpha, beta int, p0Q, p1Q, p1P *ring.Poly) {
+func (decomposer *Decomposer) DecomposeAndSplit(levelQ, levelP, alpha, beta, gamma int, p0Q, p1Q, p1P *ring.Poly) {
 
 	ringQ := decomposer.ringQ
 	ringP := decomposer.ringP
@@ -453,7 +453,7 @@ func (decomposer *Decomposer) DecomposeAndSplit(levelQ, levelP, alpha, beta int,
 		// Otherwise, we apply a fast exact base conversion for the reconstruction
 	} else {
 
-		params := decomposer.modUpParams[2*alpha-2][beta][decompLvl]
+		params := decomposer.modUpParams[gamma*alpha-2][beta][decompLvl]
 
 		var v [8]uint64
 		var vi [8]float64

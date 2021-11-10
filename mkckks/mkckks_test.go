@@ -9,18 +9,12 @@ import (
 
 	"github.com/ldsec/lattigo/v2/ckks"
 	"github.com/ldsec/lattigo/v2/ring"
+	"github.com/ldsec/lattigo/v2/rlwe"
 	"github.com/ldsec/lattigo/v2/utils"
 
 	"github.com/stretchr/testify/require"
 	"math"
-	/*
-
-		"github.com/ldsec/lattigo/v2/rlwe"
-			"encoding/json"
-			"runtime"
-
-			"github.com/stretchr/testify/assert"
-	*/)
+)
 
 var flagLongTest = flag.Bool("long", false, "run the long test suite (all parameters + secure bootstrapping). Overrides -short and requires -timeout=0.")
 var flagParamString = flag.String("params", "", "specify the test cryptographic parameters as a JSON string. Overrides -short and -long.")
@@ -52,12 +46,28 @@ type testParams struct {
 	idset     *mkrlwe.IDSet
 }
 
-func TestCKKS(t *testing.T) {
+var PN15QP830 = ckks.ParametersLiteral{
+	LogN:     15,
+	LogSlots: 14,
+	Q: []uint64{0x4000000120001, 0x10000140001, 0xffffe80001, // 50 + 15 x 40
+		0x10000290001, 0xffffc40001, 0x100003e0001,
+		0x10000470001, 0x100004b0001, 0xffffb20001,
+		0x10000500001, 0x10000650001, 0xffff940001,
+		0xffff8a0001, 0xffff820001, 0xffff780001,
+		0x10000890001},
+	P:     []uint64{0x200000440001, 0x200000500001, 0x200000620001, 0x1fffff980001}, // 4 x 45
+	Scale: 1 << 40,
+	Sigma: rlwe.DefaultSigma,
+}
 
-	defaultParams := ckks.DefaultParams                                          // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
-	defaultParams = append(ckks.DefaultParams, ckks.DefaultPostQuantumParams...) // the long test suite runs for all default parameters
+func testCKKS(t *testing.T) {
 
-	//defaultParams := []ckks.ParametersLiteral{ckks.PN15QP880}
+	/*
+		defaultParams := ckks.DefaultParams                                          // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
+		defaultParams = append(ckks.DefaultParams, ckks.DefaultPostQuantumParams...) // the long test suite runs for all default parameters
+	*/
+
+	defaultParams := []ckks.ParametersLiteral{PN15QP830}
 
 	for _, defaultParam := range defaultParams {
 		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
@@ -128,7 +138,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 }
 
-func newTestVectors(testContext *testParams, id string, a, b complex128, t *testing.T) (msg *Message, ciphertext *Ciphertext) {
+func newTestVectors(testContext *testParams, id string, a, b complex128) (msg *Message, ciphertext *Ciphertext) {
 
 	params := testContext.params
 	logSlots := testContext.params.LogSlots()
@@ -156,8 +166,8 @@ func testEvaluatorAdd(testContext *testParams, t *testing.T) {
 
 	t.Run(GetTestName(testContext.params, "Evaluator/Add/CtCt/"), func(t *testing.T) {
 		params := testContext.params
-		msg1, ct1 := newTestVectors(testContext, "user1", complex(-1, -1), complex(1, 1), t)
-		msg2, ct2 := newTestVectors(testContext, "user2", complex(-1, -1), complex(1, 1), t)
+		msg1, ct1 := newTestVectors(testContext, "user1", complex(-1, -1), complex(1, 1))
+		msg2, ct2 := newTestVectors(testContext, "user2", complex(-1, -1), complex(1, 1))
 		msg3 := NewMessage(params)
 
 		for i := range msg3.Value {
@@ -201,8 +211,8 @@ func testEvaluatorSub(testContext *testParams, t *testing.T) {
 
 	t.Run(GetTestName(testContext.params, "Evaluator/Sub/CtCt/"), func(t *testing.T) {
 		params := testContext.params
-		msg1, ct1 := newTestVectors(testContext, "user1", complex(-1, -1), complex(1, 1), t)
-		msg2, ct2 := newTestVectors(testContext, "user2", complex(-1, -1), complex(1, 1), t)
+		msg1, ct1 := newTestVectors(testContext, "user1", complex(-1, -1), complex(1, 1))
+		msg2, ct2 := newTestVectors(testContext, "user2", complex(-1, -1), complex(1, 1))
 		msg3 := NewMessage(params)
 
 		for i := range msg3.Value {
@@ -252,10 +262,10 @@ func testEvaluatorMul(testContext *testParams, t *testing.T) {
 		user3 := "user3"
 		user4 := "user4"
 
-		msg1, ct1 := newTestVectors(testContext, user1, complex(0.5, 0.5), complex(1.0, 1.0), t)
-		msg2, ct2 := newTestVectors(testContext, user2, complex(0.5, 0.5), complex(1.0, 1.0), t)
-		msg3, ct3 := newTestVectors(testContext, user3, complex(0.5, 0.5), complex(1.0, 1.0), t)
-		msg4, ct4 := newTestVectors(testContext, user4, complex(0.5, 0.5), complex(1.0, 1.0), t)
+		msg1, ct1 := newTestVectors(testContext, user1, complex(0.5, 0.5), complex(1.0, 1.0))
+		msg2, ct2 := newTestVectors(testContext, user2, complex(0.5, 0.5), complex(1.0, 1.0))
+		msg3, ct3 := newTestVectors(testContext, user3, complex(0.5, 0.5), complex(1.0, 1.0))
+		msg4, ct4 := newTestVectors(testContext, user4, complex(0.5, 0.5), complex(1.0, 1.0))
 
 		msgRes := NewMessage(params)
 
@@ -287,8 +297,8 @@ func testEvaluatorRescale(testContext *testParams, t *testing.T) {
 
 	t.Run(GetTestName(testContext.params, "Evaluator/Rescale/Single/"), func(t *testing.T) {
 		params := testContext.params
-		msg1, ct1 := newTestVectors(testContext, "user1", complex(-1, -1), complex(1, 1), t)
-		msg2, ct2 := newTestVectors(testContext, "user2", complex(-1, -1), complex(1, 1), t)
+		msg1, ct1 := newTestVectors(testContext, "user1", complex(-1, -1), complex(1, 1))
+		msg2, ct2 := newTestVectors(testContext, "user2", complex(-1, -1), complex(1, 1))
 		msg3 := NewMessage(params)
 
 		constant := testContext.ringQ.Modulus[ct1.Level()]

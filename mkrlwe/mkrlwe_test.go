@@ -36,7 +36,9 @@ var PN16QP1761 = rlwe.ParametersLiteral{
 
 //var TestParams = []rlwe.ParametersLiteral{PN16QP1761}
 
-var TestParams = []rlwe.ParametersLiteral{rlwe.TestPN12QP109, rlwe.TestPN13QP218, rlwe.TestPN14QP438, rlwe.TestPN15QP880, PN16QP1761}
+var TestParams = []rlwe.ParametersLiteral{rlwe.TestPN12QP109, rlwe.TestPN13QP218, rlwe.TestPN14QP438, rlwe.TestPN15QP880}
+
+//PN16QP1761}
 
 func testString(params Parameters, opname string) string {
 	return fmt.Sprintf("%slogN=%d/logQ=%d/logP=%d/#Qi=%d/#Pi=%d",

@@ -15,12 +15,12 @@ type KeySwitcher struct {
 // DecomposeSingleNTT takes the input polynomial c2 (c2NTT and c2InvNTT, respectively in the NTT and out of the NTT domain)
 // modulo q_alpha_beta, and returns the result on c2QiQ are c2QiP the receiver polynomials
 // respectively mod Q and mod P (in the NTT domain)
-func (ks *KeySwitcher) DecomposeSingleNTT(levelQ, levelP, alpha, beta int, c2NTT, c2InvNTT, c2QiQ, c2QiP *ring.Poly) {
+func (ks *KeySwitcher) DecomposeSingleNTT(levelQ, levelP, alpha, beta, gamma int, c2NTT, c2InvNTT, c2QiQ, c2QiP *ring.Poly) {
 
 	ringQ := ks.Parameters.RingQ()
 	ringP := ks.Parameters.RingP()
 
-	ks.Decomposer.DecomposeAndSplit(levelQ, levelP, alpha, beta, c2InvNTT, c2QiQ, c2QiP)
+	ks.Decomposer.DecomposeAndSplit(levelQ, levelP, alpha, beta, gamma, c2InvNTT, c2QiQ, c2QiP)
 
 	p0idxst := beta * (alpha)
 	p0idxed := p0idxst + 1
@@ -74,7 +74,7 @@ func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly, ad *SwitchingKey) {
 
 	// Key switching with CRT decomposition for the Qi
 	for i := 0; i < beta; i++ {
-		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, aNTT, aInvNTT, ad.Value[i].Q, ad.Value[i].P)
+		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, params.Gamma(), aNTT, aInvNTT, ad.Value[i].Q, ad.Value[i].P)
 	}
 
 	return
@@ -107,7 +107,7 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 
 	// Key switching with CRT decomposition for the Qi
 	for i := 0; i < beta; i++ {
-		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, aNTT, aInvNTT, c0QP.Q, c0QP.P)
+		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, params.Gamma(), aNTT, aInvNTT, c0QP.Q, c0QP.P)
 
 		if i == 0 {
 			ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, bg.Value[i], c0QP, c1QP)
