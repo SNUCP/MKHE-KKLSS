@@ -10,7 +10,7 @@ import (
 
 func BenchmarkMKCKKS(b *testing.B) {
 
-	defaultParams := []ckks.ParametersLiteral{PN15QP830}
+	defaultParams := []ckks.ParametersLiteral{PN13QP213, PN14QP438, PN15QP830}
 
 	for _, defaultParam := range defaultParams {
 		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
