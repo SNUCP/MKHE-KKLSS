@@ -1,5 +1,6 @@
 package mkbfv
 
+/*
 //import "github.com/ldsec/lattigo/v2/ring"
 
 import "mk-lattigo/mkrlwe"
@@ -12,8 +13,10 @@ type KeyGenerator struct {
 	keygenRP *mkrlwe.KeyGenerator
 	baseconv *FastBasisExtender
 
-	QInv    *mkrlwe.SwitchingKey
-	QMulInv *mkrlwe.SwitchingKey
+	// QMulInvQ = QMul * Q^-1
+	// QInvQMul = Q * QMul^-1
+	QMulInvQ *mkrlwe.SwitchingKey
+	QInvQMul *mkrlwe.SwitchingKey
 }
 
 func NewKeyGenerator(params Parameters) (keygen *KeyGenerator) {
@@ -26,8 +29,8 @@ func NewKeyGenerator(params Parameters) (keygen *KeyGenerator) {
 	//gen QInv and QMulInv
 	ringR := params.RingR()
 	ringP := params.RingP()
-	keygen.QInv = mkrlwe.NewSwitchingKey(params.paramsRP)
-	keygen.QMulInv = mkrlwe.NewSwitchingKey(params.paramsRP)
+	keygen.QMulInvQ = mkrlwe.NewSwitchingKey(params.paramsRP)
+	keygen.QInvQMul = mkrlwe.NewSwitchingKey(params.paramsRP)
 	ks := mkrlwe.NewKeySwitcher(params.paramsRP)
 
 	beta := params.paramsRP.Beta(params.RCount() - 1)
@@ -39,22 +42,22 @@ func NewKeyGenerator(params Parameters) (keygen *KeyGenerator) {
 
 	tmpBigInt.ModInverse(Q, QMul)
 	ringR.AddScalarBigint(tmpPolyR, tmpBigInt, tmpPolyR)
-	ks.Decompose(params.RCount()-1, tmpPolyR, keygen.QInv)
+	ks.Decompose(params.RCount()-1, tmpPolyR, keygen.QMulInvQ)
 	ringR.SubScalarBigint(tmpPolyR, tmpBigInt, tmpPolyR)
 
 	for i := 0; i < beta; i++ {
-		ringR.MulScalarBigint(keygen.QInv.Value[i].Q, QMul, keygen.QInv.Value[i].Q)
-		ringP.MulScalarBigint(keygen.QInv.Value[i].P, QMul, keygen.QInv.Value[i].P)
+		ringR.MulScalarBigint(keygen.QMulInvQ.Value[i].Q, QMul, keygen.QMulInvQ.Value[i].Q)
+		ringP.MulScalarBigint(keygen.QMulInvQ.Value[i].P, QMul, keygen.QMulInvQ.Value[i].P)
 	}
 
 	tmpBigInt.ModInverse(QMul, Q)
 	ringR.AddScalarBigint(tmpPolyR, tmpBigInt, tmpPolyR)
-	ks.Decompose(params.RCount()-1, tmpPolyR, keygen.QMulInv)
+	ks.Decompose(params.RCount()-1, tmpPolyR, keygen.QInvQMul)
 	ringR.SubScalarBigint(tmpPolyR, tmpBigInt, tmpPolyR)
 
 	for i := 0; i < beta; i++ {
-		ringR.MulScalarBigint(keygen.QMulInv.Value[i].Q, Q, keygen.QMulInv.Value[i].Q)
-		ringP.MulScalarBigint(keygen.QMulInv.Value[i].P, Q, keygen.QMulInv.Value[i].P)
+		ringR.MulScalarBigint(keygen.QInvQMul.Value[i].Q, Q, keygen.QInvQMul.Value[i].Q)
+		ringP.MulScalarBigint(keygen.QInvQMul.Value[i].P, Q, keygen.QInvQMul.Value[i].P)
 	}
 
 	return keygen
@@ -98,20 +101,28 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk 
 	for i := 0; i < beta; i++ {
 		keygen.keygenRP.GenGaussianError(e)
 		ringRP.MFormLvl(levelR, levelP, e, e)
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInv.Value[i], rlk.Value[0].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInv.Value[i], rlk.Value[0].Value[i])
+		ringRP.InvMFormLvl(levelR, levelP, rlk.Value[0].Value[i], rlk.Value[0].Value[i])
+		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInvQMul.Value[i], rlk.Value[0].Value[i])
+		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInvQ.Value[i], rlk.Value[0].Value[i])
+		ringRP.MFormLvl(levelR, levelP, rlk.Value[0].Value[i], rlk.Value[0].Value[i])
 
 		keygen.keygenRP.GenGaussianError(e)
 		ringRP.MFormLvl(levelR, levelP, e, e)
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInv.Value[i], rlk.Value[1].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInv.Value[i], rlk.Value[1].Value[i])
+		ringRP.InvMFormLvl(levelR, levelP, rlk.Value[1].Value[i], rlk.Value[1].Value[i])
+		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInvQMul.Value[i], rlk.Value[1].Value[i])
+		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInvQ.Value[i], rlk.Value[1].Value[i])
+		ringRP.MFormLvl(levelR, levelP, rlk.Value[1].Value[i], rlk.Value[1].Value[i])
 
 		keygen.keygenRP.GenGaussianError(e)
 		ringRP.MFormLvl(levelR, levelP, e, e)
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInv.Value[i], rlk.Value[2].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInv.Value[i], rlk.Value[2].Value[i])
+		ringRP.InvMFormLvl(levelR, levelP, rlk.Value[2].Value[i], rlk.Value[2].Value[i])
+		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInvQMul.Value[i], rlk.Value[2].Value[i])
+		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInvQ.Value[i], rlk.Value[2].Value[i])
+		ringRP.MFormLvl(levelR, levelP, rlk.Value[2].Value[i], rlk.Value[2].Value[i])
 
 	}
 
 	return rlk
 }
+
+*/
