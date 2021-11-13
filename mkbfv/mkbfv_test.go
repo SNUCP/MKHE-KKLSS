@@ -10,8 +10,8 @@ import "github.com/ldsec/lattigo/v2/utils"
 import "fmt"
 import "testing"
 import "strconv"
-
-//import "math"
+import "math/big"
+import "math/bits"
 
 func GetTestName(params Parameters, opname string) string {
 	return fmt.Sprintf("%slogN=%d/logQP=%d/",
@@ -50,13 +50,79 @@ type testParams struct {
 	ringP     *ring.Ring
 	prng      utils.PRNG
 	kgen      *KeyGenerator
-	skSet     *mkrlwe.SecretKeySet
+	skSet     *SecretKeySet
 	pkSet     *mkrlwe.PublicKeySet
 	rlkSet    *mkrlwe.RelinearizationKeySet
 	encryptor *Encryptor
 	decryptor *Decryptor
-	//evaluator *Evaluator
-	idset *mkrlwe.IDSet
+	evaluator *Evaluator
+	idset     *mkrlwe.IDSet
+}
+
+// Returns the ceil(log2) of the sum of the absolute value of all the coefficients
+func log2OfInnerSum(level int, ringQ *ring.Ring, poly *ring.Poly) (logSum int) {
+	sumRNS := make([]uint64, level+1)
+	var sum uint64
+	for i := 0; i < level+1; i++ {
+
+		qi := ringQ.Modulus[i]
+		qiHalf := qi >> 1
+		coeffs := poly.Coeffs[i]
+		sum = 0
+
+		for j := 0; j < ringQ.N; j++ {
+
+			v := coeffs[j]
+
+			if v >= qiHalf {
+				sum = ring.CRed(sum+qi-v, qi)
+			} else {
+				sum = ring.CRed(sum+v, qi)
+			}
+		}
+
+		sumRNS[i] = sum
+	}
+
+	var smallNorm = true
+	for i := 1; i < level+1; i++ {
+		smallNorm = smallNorm && (sumRNS[0] == sumRNS[i])
+	}
+
+	smallNorm = false
+	if !smallNorm {
+		var qi uint64
+		var crtReconstruction *big.Int
+
+		sumBigInt := ring.NewUint(0)
+		QiB := new(big.Int)
+		tmp := new(big.Int)
+		modulusBigint := ring.NewUint(1)
+
+		for i := 0; i < level+1; i++ {
+
+			qi = ringQ.Modulus[i]
+			QiB.SetUint64(qi)
+
+			modulusBigint.Mul(modulusBigint, QiB)
+
+			crtReconstruction = new(big.Int)
+			crtReconstruction.Quo(ringQ.ModulusBigint, QiB)
+			tmp.ModInverse(crtReconstruction, QiB)
+			tmp.Mod(tmp, QiB)
+			crtReconstruction.Mul(crtReconstruction, tmp)
+
+			sumBigInt.Add(sumBigInt, tmp.Mul(ring.NewUint(sumRNS[i]), crtReconstruction))
+		}
+
+		sumBigInt.Mod(sumBigInt, modulusBigint)
+
+		logSum = sumBigInt.BitLen()
+	} else {
+		logSum = bits.Len64(sumRNS[0])
+	}
+
+	return
 }
 
 func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *testParams, err error) {
@@ -66,8 +132,9 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 	testContext.params = defaultParam
 
 	testContext.kgen = NewKeyGenerator(testContext.params)
+	testContext.evaluator = NewEvaluator(testContext.params)
 
-	testContext.skSet = mkrlwe.NewSecretKeySet()
+	testContext.skSet = NewSecretKeySet()
 	testContext.pkSet = mkrlwe.NewPublicKeyKeySet()
 	testContext.rlkSet = mkrlwe.NewRelinearizationKeyKeySet()
 
@@ -94,7 +161,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 }
 
-func TestCKKS(t *testing.T) {
+func TestMKBFV(t *testing.T) {
 	defaultParams := []ParametersLiteral{PN15QP840}
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
@@ -112,6 +179,14 @@ func TestCKKS(t *testing.T) {
 
 		testEncAndDec(testContext, userList, t)
 
+		testEvaluatorAdd(testContext, userList[:2], t)
+		testEvaluatorAdd(testContext, userList[:4], t)
+
+		testEvaluatorSub(testContext, userList[:2], t)
+		testEvaluatorSub(testContext, userList[:4], t)
+
+		testEvaluatorMul(testContext, userList[:2], t)
+		testEvaluatorMul(testContext, userList[:4], t)
 	}
 }
 
@@ -132,6 +207,27 @@ func newTestVectors(testContext *testParams, id string, a, b int64) (msg *Messag
 
 	return msg, ciphertext
 }
+
+/*
+func testRelinKeyGen(testContext *testParams, t *testing.T) {
+
+	// Checks that internal product works properly
+	// 1) generate two pk (-as+e, a)
+	// 2) generate sg
+	// 3) check Interal(-as+e, sg) similar to -as^2
+	params := testContext.params
+	keygen := testContext.kgen
+
+	levelQ := params.QCount() - 1
+	levelQMul := params.QMulCount() - 1
+	levelP := params.PCount() - 1
+	levelR := params.RCount() - 1
+
+	t.Run(GetTestName(params, "MKBFVRLKGen/"), func(t *testing.T) {
+
+	})
+}
+*/
 
 func testEncAndDec(testContext *testParams, userList []string, t *testing.T) {
 	params := testContext.params
@@ -154,6 +250,116 @@ func testEncAndDec(testContext *testParams, userList []string, t *testing.T) {
 				delta := msgList[i].Value[j] - msgOut.Value[j]
 				require.Equal(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgList[i].Value[j], msgOut.Value[j]))
 			}
+		}
+	})
+
+}
+
+func testEvaluatorAdd(testContext *testParams, userList []string, t *testing.T) {
+
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
+
+	eval := testContext.evaluator
+
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], -2, 2)
+	}
+
+	ct := ctList[0]
+	msg := msgList[0]
+
+	for i := range userList {
+		ct = eval.AddNew(ct, ctList[i])
+
+		for j := range msg.Value {
+			msg.Value[j] += msgList[i].Value[j]
+		}
+	}
+
+	t.Run(GetTestName(testContext.params, "MKBFVAdd: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		ctRes := ct
+		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
+
+		for i := range msgRes.Value {
+			delta := msgRes.Value[i] - msg.Value[i]
+			require.GreaterOrEqual(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgRes.Value[i], msg.Value[i]))
+		}
+	})
+
+}
+
+func testEvaluatorSub(testContext *testParams, userList []string, t *testing.T) {
+
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
+
+	eval := testContext.evaluator
+
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], -2, 2)
+	}
+
+	ct := ctList[0]
+	msg := msgList[0]
+
+	for i := range userList {
+		ct = eval.SubNew(ct, ctList[i])
+
+		for j := range msg.Value {
+			msg.Value[j] -= msgList[i].Value[j]
+		}
+	}
+
+	t.Run(GetTestName(testContext.params, "MKBFVSub: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		ctRes := ct
+		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
+
+		for i := range msgRes.Value {
+			delta := msgRes.Value[i] - msg.Value[i]
+			require.GreaterOrEqual(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgRes.Value[i], msg.Value[i]))
+		}
+	})
+
+}
+
+func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) {
+
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
+
+	rlkSet := testContext.rlkSet
+	eval := testContext.evaluator
+
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], -2, 2)
+	}
+
+	ct := ctList[0]
+	msg := msgList[0]
+
+	for i := range userList {
+		ct = eval.AddNew(ct, ctList[i])
+
+		for j := range msg.Value {
+			msg.Value[j] += msgList[i].Value[j]
+		}
+	}
+
+	for j := range msg.Value {
+		msg.Value[j] *= msg.Value[j]
+	}
+
+	t.Run(GetTestName(testContext.params, "MKBFVMulAndRelin: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		ctRes := eval.MulRelinNew(ct, ct, rlkSet)
+		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
+
+		for i := range msgRes.Value {
+			delta := msgRes.Value[i] - msg.Value[i]
+			require.GreaterOrEqual(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgRes.Value[i], msg.Value[i]))
 		}
 	})
 

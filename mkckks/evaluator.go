@@ -1,7 +1,7 @@
 package mkckks
 
 import "mk-lattigo/mkrlwe"
-import "github.com/ldsec/lattigo/v2/ckks"
+
 import "github.com/ldsec/lattigo/v2/ring"
 import "github.com/ldsec/lattigo/v2/utils"
 
@@ -12,10 +12,8 @@ import "errors"
 type Evaluator struct {
 	params    Parameters
 	ksw       *mkrlwe.KeySwitcher
-	encoder   ckks.Encoder
 	ctxtPool  *mkrlwe.Ciphertext
-	polyQPool [3]*ring.Poly
-	swkPool   *mkrlwe.SwitchingKey
+	polyQPool *ring.Poly
 }
 
 // NewEvaluator creates a new Evaluator, that can be used to do homomorphic
@@ -29,17 +27,11 @@ func NewEvaluator(params Parameters) *Evaluator {
 		eval.ksw = mkrlwe.NewKeySwitcher(params.Parameters)
 	}
 
-	ckksParams, _ := ckks.NewParameters(params.Parameters.Parameters, params.LogSlots(), params.Scale())
-	eval.encoder = ckks.NewEncoder(ckksParams)
 	eval.ctxtPool = mkrlwe.NewCiphertext(params.Parameters, mkrlwe.NewIDSet(), params.MaxLevel())
 
 	ringQ := params.RingQ()
-	eval.polyQPool = [3]*ring.Poly{ringQ.NewPoly(), ringQ.NewPoly(), ringQ.NewPoly()}
-	eval.polyQPool[0].IsNTT = true
-	eval.polyQPool[1].IsNTT = true
-	eval.polyQPool[2].IsNTT = true
-
-	eval.swkPool = mkrlwe.NewSwitchingKey(params.Parameters)
+	eval.polyQPool = ringQ.NewPoly()
+	eval.polyQPool.IsNTT = true
 
 	return eval
 }
@@ -392,7 +384,7 @@ func (eval *Evaluator) Rescale(ctIn *Ciphertext, minScale float64, ctOut *Cipher
 	if nbRescales > 0 {
 		level := ctIn.Level()
 		for i := range ctOut.Value {
-			ringQ.DivRoundByLastModulusManyNTTLvl(level, nbRescales, ctIn.Value[i], eval.polyQPool[0], ctOut.Value[i])
+			ringQ.DivRoundByLastModulusManyNTTLvl(level, nbRescales, ctIn.Value[i], eval.polyQPool, ctOut.Value[i])
 			ctOut.Value[i].Coeffs = ctOut.Value[i].Coeffs[:level+1-nbRescales]
 		}
 	} else {
@@ -421,7 +413,9 @@ func (eval *Evaluator) RescaleNew(ct0 *Ciphertext, threshold float64) (ctOut *Ci
 // The procedure will panic if either op0.Degree or op1.Degree > 1.
 // The procedure will panic if the evaluator was not created with an relinearization key.
 func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *mkrlwe.RelinearizationKeySet) (ctOut *Ciphertext) {
-	ctOut = NewCiphertext(eval.params, op0.IDSet().Union(op1.IDSet()), utils.MinInt(op0.Level(), op1.Level()), 0)
+	//ctOut = NewCiphertext(eval.params, op0.IDSet().Union(op1.IDSet()), utils.MinInt(op0.Level(), op1.Level()), 0)
+	ctOut = eval.newCiphertextBinary(op0, op1)
+	ctOut.Scale = 0
 	eval.mulRelin(op0, op1, rlkSet, ctOut)
 	return
 }

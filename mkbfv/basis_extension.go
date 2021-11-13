@@ -49,11 +49,11 @@ func (conv *FastBasisExtender) modUpQPtoRP(polyQP, polyRP rlwe.PolyQP) {
 	polyRP.P.Copy(polyQP.P)
 
 	for i := 0; i < levelQ+1; i++ {
-		copy(polyQP.Q.Coeffs[i], polyRP.Q.Coeffs[i])
+		copy(polyRP.Q.Coeffs[i], polyQP.Q.Coeffs[i])
 	}
 
 	for i := 0; i < levelQMul+1; i++ {
-		copy(conv.polypoolQMul.Coeffs[i], polyRP.Q.Coeffs[i+levelQ+1])
+		copy(polyRP.Q.Coeffs[i+levelQ+1], conv.polypoolQMul.Coeffs[i])
 	}
 }
 
@@ -70,11 +70,11 @@ func (conv *FastBasisExtender) modUpQMulPtoRP(polyQMulP, polyRP rlwe.PolyQP) {
 	polyRP.P.Copy(polyQMulP.P)
 
 	for i := 0; i < levelQ+1; i++ {
-		copy(conv.polypoolQ.Coeffs[i], polyRP.Q.Coeffs[i])
+		copy(polyRP.Q.Coeffs[i], conv.polypoolQ.Coeffs[i])
 	}
 
 	for i := 0; i < levelQMul+1; i++ {
-		copy(polyQMulP.Q.Coeffs[i], polyRP.Q.Coeffs[i+levelQ+1])
+		copy(polyRP.Q.Coeffs[i+levelQ+1], polyQMulP.Q.Coeffs[i])
 	}
 }
 
@@ -88,11 +88,11 @@ func (conv *FastBasisExtender) ModUpQtoRAndNTT(polyQ, polyR *ring.Poly) {
 	conv.baseconverter.ModUpQtoP(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul)
 
 	for i := 0; i < levelQ+1; i++ {
-		copy(polyQ.Coeffs[i], polyR.Coeffs[i])
+		copy(polyR.Coeffs[i], polyQ.Coeffs[i])
 	}
 
 	for i := 0; i < levelQMul+1; i++ {
-		copy(conv.polypoolQMul.Coeffs[i], polyR.Coeffs[i+levelQ+1])
+		copy(polyR.Coeffs[i+levelQ+1], conv.polypoolQMul.Coeffs[i])
 	}
 
 	conv.ringR.NTTLvl(levelR, polyR, polyR)
@@ -143,6 +143,15 @@ func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.Sw
 		panic("cannot GadgetTransform: swkRP have wrong dimension")
 	}
 
+	// apply InvMForm
+	for i := 0; i < beta; i++ {
+		conv.ringQ.InvMForm(swkQP.Value[i].Q, swkQP.Value[i].Q)
+		conv.ringP.InvMForm(swkQP.Value[i].P, swkQP.Value[i].P)
+
+		conv.ringQMul.InvMForm(swkQMulP.Value[i].Q, swkQMulP.Value[i].Q)
+		conv.ringP.InvMForm(swkQMulP.Value[i].P, swkQMulP.Value[i].P)
+	}
+
 	Q := conv.ringQ.ModulusBigint
 	QMul := conv.ringQMul.ModulusBigint
 
@@ -180,6 +189,21 @@ func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.Sw
 		conv.modUpQMulPtoRP(swkQMulP.Value[i], swkRP.Value[i+beta])
 		conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, InvQModQMuli, swkRP.Value[i+beta].Q)
 		conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, InvQModQMuli, swkRP.Value[i+beta].P)
+	}
+
+	// apply MForm
+	for i := 0; i < beta; i++ {
+		conv.ringQ.MForm(swkQP.Value[i].Q, swkQP.Value[i].Q)
+		conv.ringP.MForm(swkQP.Value[i].P, swkQP.Value[i].P)
+
+		conv.ringQMul.MForm(swkQMulP.Value[i].Q, swkQMulP.Value[i].Q)
+		conv.ringP.MForm(swkQMulP.Value[i].P, swkQMulP.Value[i].P)
+
+		conv.ringR.MForm(swkRP.Value[i].Q, swkRP.Value[i].Q)
+		conv.ringP.MForm(swkRP.Value[i].P, swkRP.Value[i].P)
+
+		conv.ringR.MForm(swkRP.Value[i+beta].Q, swkRP.Value[i+beta].Q)
+		conv.ringP.MForm(swkRP.Value[i+beta].P, swkRP.Value[i+beta].P)
 	}
 
 }
