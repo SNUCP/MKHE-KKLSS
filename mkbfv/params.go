@@ -149,3 +149,7 @@ func (p Parameters) RCount() int {
 func (p Parameters) QMulCount() int {
 	return len(p.RingQMul().Modulus)
 }
+
+func (p Parameters) N() int {
+	return p.paramsQP.N()
+}

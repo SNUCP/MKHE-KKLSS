@@ -1,64 +1,28 @@
 package mkbfv
 
-/*
-//import "github.com/ldsec/lattigo/v2/ring"
+import "github.com/ldsec/lattigo/v2/ring"
 
 import "mk-lattigo/mkrlwe"
 
-import "math/big"
-
 type KeyGenerator struct {
-	params   Parameters
-	keygenQP *mkrlwe.KeyGenerator
-	keygenRP *mkrlwe.KeyGenerator
-	baseconv *FastBasisExtender
+	params      Parameters
+	keygenQP    *mkrlwe.KeyGenerator
+	keygenQMulP *mkrlwe.KeyGenerator
+	baseconv    *FastBasisExtender
 
-	// QMulInvQ = QMul * Q^-1
-	// QInvQMul = Q * QMul^-1
-	QMulInvQ *mkrlwe.SwitchingKey
-	QInvQMul *mkrlwe.SwitchingKey
+	polypoolQ    *ring.Poly
+	polypoolQMul *ring.Poly
 }
 
 func NewKeyGenerator(params Parameters) (keygen *KeyGenerator) {
 	keygen = new(KeyGenerator)
 	keygen.params = params
 	keygen.keygenQP = mkrlwe.NewKeyGenerator(params.paramsQP)
-	keygen.keygenRP = mkrlwe.NewKeyGenerator(params.paramsRP)
-	keygen.baseconv = NewFastBasisExtender(params)
+	keygen.keygenQMulP = mkrlwe.NewKeyGenerator(params.paramsQMulP)
+	keygen.baseconv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQMul(), params.RingR())
 
-	//gen QInv and QMulInv
-	ringR := params.RingR()
-	ringP := params.RingP()
-	keygen.QMulInvQ = mkrlwe.NewSwitchingKey(params.paramsRP)
-	keygen.QInvQMul = mkrlwe.NewSwitchingKey(params.paramsRP)
-	ks := mkrlwe.NewKeySwitcher(params.paramsRP)
-
-	beta := params.paramsRP.Beta(params.RCount() - 1)
-	Q := params.RingQ().ModulusBigint
-	QMul := params.RingQMul().ModulusBigint
-	tmpBigInt := big.NewInt(0)
-	tmpPolyR := ringR.NewPoly()
-	tmpPolyR.IsNTT = true
-
-	tmpBigInt.ModInverse(Q, QMul)
-	ringR.AddScalarBigint(tmpPolyR, tmpBigInt, tmpPolyR)
-	ks.Decompose(params.RCount()-1, tmpPolyR, keygen.QMulInvQ)
-	ringR.SubScalarBigint(tmpPolyR, tmpBigInt, tmpPolyR)
-
-	for i := 0; i < beta; i++ {
-		ringR.MulScalarBigint(keygen.QMulInvQ.Value[i].Q, QMul, keygen.QMulInvQ.Value[i].Q)
-		ringP.MulScalarBigint(keygen.QMulInvQ.Value[i].P, QMul, keygen.QMulInvQ.Value[i].P)
-	}
-
-	tmpBigInt.ModInverse(QMul, Q)
-	ringR.AddScalarBigint(tmpPolyR, tmpBigInt, tmpPolyR)
-	ks.Decompose(params.RCount()-1, tmpPolyR, keygen.QInvQMul)
-	ringR.SubScalarBigint(tmpPolyR, tmpBigInt, tmpPolyR)
-
-	for i := 0; i < beta; i++ {
-		ringR.MulScalarBigint(keygen.QInvQMul.Value[i].Q, Q, keygen.QInvQMul.Value[i].Q)
-		ringP.MulScalarBigint(keygen.QInvQMul.Value[i].P, Q, keygen.QInvQMul.Value[i].P)
-	}
+	keygen.polypoolQ = params.RingQ().NewPoly()
+	keygen.polypoolQMul = params.RingQMul().NewPoly()
 
 	return keygen
 }
@@ -77,52 +41,43 @@ func (keygen *KeyGenerator) GenKeyPair(id string) (sk *mkrlwe.SecretKey, pk *mkr
 	return sk, keygen.GenPublicKey(sk)
 }
 
-func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk *mkrlwe.RelinearizationKey) {
+func (keygen *KeyGenerator) GenRelinearizationKey(skQP, rQP *mkrlwe.SecretKey) (rlk *mkrlwe.RelinearizationKey) {
 
 	params := keygen.params
-	paramsRP := params.paramsRP
 
-	skR := mkrlwe.NewSecretKey(paramsRP, sk.ID)
-	rR := mkrlwe.NewSecretKey(paramsRP, sk.ID)
+	levelQ := params.QCount() - 1
+	levelQMul := params.QMulCount() - 1
 
-	skR.Value.P.Copy(sk.Value.P)
-	rR.Value.P.Copy(rR.Value.P)
-	keygen.baseconv.ModUpQtoR(sk.Value.Q, skR.Value.Q)
-	keygen.baseconv.ModUpQtoR(r.Value.Q, rR.Value.Q)
+	id := skQP.ID
 
-	rlk = keygen.keygenRP.GenRelinearizationKey(skR, rR)
-	levelR := params.RCount() - 1
-	levelP := params.PCount() - 1
-	beta := paramsRP.Beta(params.RCount() - 1)
-	ringRP := params.RingRP()
+	// generate sk, r in mod QMulP
+	skQMulP := mkrlwe.NewSecretKey(params.paramsQMulP, id)
+	rQMulP := mkrlwe.NewSecretKey(params.paramsQMulP, id)
 
-	e := ringRP.NewPoly()
+	skQMulP.Value.P.Copy(skQP.Value.P)
+	rQMulP.Value.P.Copy(rQP.Value.P)
 
-	for i := 0; i < beta; i++ {
-		keygen.keygenRP.GenGaussianError(e)
-		ringRP.MFormLvl(levelR, levelP, e, e)
-		ringRP.InvMFormLvl(levelR, levelP, rlk.Value[0].Value[i], rlk.Value[0].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInvQMul.Value[i], rlk.Value[0].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInvQ.Value[i], rlk.Value[0].Value[i])
-		ringRP.MFormLvl(levelR, levelP, rlk.Value[0].Value[i], rlk.Value[0].Value[i])
+	params.RingQ().InvMForm(skQP.Value.Q, keygen.polypoolQ)
+	params.RingQ().InvNTT(keygen.polypoolQ, keygen.polypoolQ)
+	keygen.baseconv.baseconverter.ModUpQtoP(levelQ, levelQMul, keygen.polypoolQ, keygen.polypoolQMul)
+	params.RingQMul().NTT(keygen.polypoolQMul, skQMulP.Value.Q)
+	params.RingQMul().MForm(skQMulP.Value.Q, skQMulP.Value.Q)
 
-		keygen.keygenRP.GenGaussianError(e)
-		ringRP.MFormLvl(levelR, levelP, e, e)
-		ringRP.InvMFormLvl(levelR, levelP, rlk.Value[1].Value[i], rlk.Value[1].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInvQMul.Value[i], rlk.Value[1].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInvQ.Value[i], rlk.Value[1].Value[i])
-		ringRP.MFormLvl(levelR, levelP, rlk.Value[1].Value[i], rlk.Value[1].Value[i])
+	params.RingQ().InvMForm(rQP.Value.Q, keygen.polypoolQ)
+	params.RingQ().InvNTT(keygen.polypoolQ, keygen.polypoolQ)
+	keygen.baseconv.baseconverter.ModUpQtoP(levelQ, levelQMul, keygen.polypoolQ, keygen.polypoolQMul)
+	params.RingQMul().NTT(keygen.polypoolQMul, rQMulP.Value.Q)
+	params.RingQMul().MForm(rQMulP.Value.Q, rQMulP.Value.Q)
 
-		keygen.keygenRP.GenGaussianError(e)
-		ringRP.MFormLvl(levelR, levelP, e, e)
-		ringRP.InvMFormLvl(levelR, levelP, rlk.Value[2].Value[i], rlk.Value[2].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QInvQMul.Value[i], rlk.Value[2].Value[i])
-		ringRP.MulCoeffsMontgomeryAndAddLvl(levelR, levelP, e, keygen.QMulInvQ.Value[i], rlk.Value[2].Value[i])
-		ringRP.MFormLvl(levelR, levelP, rlk.Value[2].Value[i], rlk.Value[2].Value[i])
+	// gen rlk in mod QP and QMulP
+	rlkQP := keygen.keygenQP.GenRelinearizationKey(skQP, rQP)
+	rlkQMulP := keygen.keygenQMulP.GenRelinearizationKey(skQMulP, rQMulP)
 
-	}
+	// apply GadgetTransform
+	rlk = mkrlwe.NewRelinearizationKey(params.paramsRP, id)
+	keygen.baseconv.GadgetTransform(rlkQP.Value[0], rlkQMulP.Value[0], rlk.Value[0])
+	keygen.baseconv.GadgetTransform(rlkQP.Value[1], rlkQMulP.Value[1], rlk.Value[1])
+	keygen.baseconv.GadgetTransform(rlkQP.Value[2], rlkQMulP.Value[2], rlk.Value[2])
 
 	return rlk
 }
-
-*/

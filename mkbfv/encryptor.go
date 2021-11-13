@@ -1,6 +1,5 @@
 package mkbfv
 
-/*
 import "mk-lattigo/mkrlwe"
 import "github.com/ldsec/lattigo/v2/bfv"
 import "github.com/ldsec/lattigo/v2/rlwe"
@@ -14,10 +13,10 @@ type Encryptor struct {
 
 // NewEncryptor instantiates a new Encryptor for the BFV scheme.
 func NewEncryptor(params Parameters) *Encryptor {
-	bfvParams, _ := bfv.NewParameters(params.Parameters.Parameters, params.T())
+	bfvParams, _ := bfv.NewParameters(params.paramsQP.Parameters, params.T())
 
 	ret := new(Encryptor)
-	ret.Encryptor = mkrlwe.NewEncryptor(params.Parameters)
+	ret.Encryptor = mkrlwe.NewEncryptor(params.paramsQP)
 	ret.encoder = bfv.NewEncoder(bfvParams)
 	ret.params = params
 	ret.ptxtPool = bfv.NewPlaintext(bfvParams)
@@ -52,5 +51,3 @@ func (enc *Encryptor) EncryptMsgNew(msg *Message, pk *mkrlwe.PublicKey) (ctOut *
 	enc.EncryptMsg(msg, pk, ctOut)
 	return
 }
-
-*/

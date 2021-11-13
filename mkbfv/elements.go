@@ -6,11 +6,10 @@ type Ciphertext struct {
 	*mkrlwe.Ciphertext
 }
 
-/*
-
 // NewCiphertext creates a new ciphertext parameterized by degree, level and scale.
+// ciphertext is not in NTT Form
 func NewCiphertext(params Parameters, idset *mkrlwe.IDSet) (ciphertext *Ciphertext) {
-	return &Ciphertext{mkrlwe.NewCiphertextNTT(params.Parameters, idset, params.MaxLevel())}
+	return &Ciphertext{mkrlwe.NewCiphertext(params.paramsQP, idset, params.paramsQP.MaxLevel())}
 }
 
 // CopyNew creates a deep copy of the receiver ciphertext and returns it.
@@ -33,5 +32,3 @@ func NewMessage(params Parameters) *Message {
 func (msg *Message) Slots() int {
 	return len(msg.Value)
 }
-
-*/
