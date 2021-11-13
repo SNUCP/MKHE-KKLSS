@@ -33,6 +33,11 @@ func (decryptor *Decryptor) PartialDecrypt(ct *Ciphertext, sk *SecretKey) {
 	}
 
 	ringQ.MulCoeffsMontgomeryLvl(level, ct.Value[id], sk.Value.Q, ct.Value[id])
+
+	if !ct.Value[id].IsNTT {
+		ringQ.InvNTTLvl(level, ct.Value[id], ct.Value[id])
+	}
+
 	ringQ.AddLvl(level, ct.Value["0"], ct.Value[id], ct.Value["0"])
 	delete(ct.Value, id)
 }
@@ -58,7 +63,4 @@ func (decryptor *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *SecretKeySet,
 	}
 
 	ringQ.ReduceLvl(level, ctTmp.Value["0"], plaintext.Value)
-	if !plaintext.Value.IsNTT {
-		ringQ.InvNTTLvl(level, plaintext.Value, plaintext.Value)
-	}
 }

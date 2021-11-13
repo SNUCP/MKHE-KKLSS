@@ -33,7 +33,7 @@ func (dec *Decryptor) PartialDecrypt(ct *Ciphertext, sk *mkrlwe.SecretKey) {
 // Output domain will match plaintext.Value.IsNTT value.
 func (dec *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *mkrlwe.SecretKeySet) (msg *Message) {
 	dec.Decryptor.Decrypt(ciphertext.Ciphertext, skSet, dec.ptxtPool.Plaintext)
-	msg = new(Message)
+	msg = NewMessage(dec.params)
 	dec.encoder.DecodeInt(dec.ptxtPool, msg.Value)
 
 	return

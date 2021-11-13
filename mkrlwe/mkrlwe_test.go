@@ -378,6 +378,15 @@ func testDecryptor(kgen *KeyGenerator, t *testing.T) {
 
 	t.Run(testString(params, "Decrypt/MaxLevel/"), func(t *testing.T) {
 		plaintext := rlwe.NewPlaintext(params.Parameters, params.MaxLevel())
+		ciphertext := NewCiphertext(params, users, plaintext.Level())
+		encryptor.Encrypt(plaintext, pk, ciphertext)
+		decryptor.Decrypt(ciphertext, skSet, plaintext)
+		require.Equal(t, plaintext.Level(), ciphertext.Level())
+		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(ciphertext.Level(), ringQ, plaintext.Value))
+	})
+
+	t.Run(testString(params, "DecryptNTT/MaxLevel/"), func(t *testing.T) {
+		plaintext := rlwe.NewPlaintext(params.Parameters, params.MaxLevel())
 		plaintext.Value.IsNTT = true
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
 		encryptor.Encrypt(plaintext, pk, ciphertext)
