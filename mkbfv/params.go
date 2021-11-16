@@ -28,8 +28,6 @@ type Parameters struct {
 	paramsQP    mkrlwe.Parameters
 	paramsQMulP mkrlwe.Parameters
 	paramsRP    mkrlwe.Parameters
-	ringQMul    *ring.Ring
-	ringR       *ring.Ring
 	ringT       *ring.Ring
 	CRS         [2]*mkrlwe.SwitchingKey
 }
@@ -51,36 +49,33 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 	R = append(R, pl.Q...)
 	R = append(R, pl.QMul...)
 
-	ringQMul, err := ring.NewRing(N, pl.QMul)
-	if err != nil {
-		panic("cannot NewParametersFromLiteral: ring QMul cannot be generated")
-	}
-
-	ringR, err := ring.NewRing(N, R)
-	if err != nil {
-		panic("cannot NewParametersFromLiteral: ring R cannot be generated")
-	}
-
 	ringT, err := ring.NewRing(N, []uint64{pl.T})
 	if err != nil {
 		panic("cannot NewParametersFromLiteral: ring T cannot be generated")
 	}
 
-	params.ringQMul = ringQMul
 	params.ringT = ringT
-	params.ringR = ringR
 
 	rlweParamsQP, err := rlwe.NewParametersFromLiteral(
 		rlwe.ParametersLiteral{LogN: pl.LogN, Q: pl.Q, P: pl.P, Sigma: pl.Sigma},
 	)
+	if err != nil {
+		panic("cannot NewParametersFromLiteral: ring QP cannot be generated")
+	}
 
 	rlweParamsQMulP, err := rlwe.NewParametersFromLiteral(
 		rlwe.ParametersLiteral{LogN: pl.LogN, Q: pl.QMul, P: pl.P, Sigma: pl.Sigma},
 	)
+	if err != nil {
+		panic("cannot NewParametersFromLiteral: ring QMulP cannot be generated")
+	}
 
 	rlweParamsRP, err := rlwe.NewParametersFromLiteral(
 		rlwe.ParametersLiteral{LogN: pl.LogN, Q: R, P: pl.P, Sigma: pl.Sigma},
 	)
+	if err != nil {
+		panic("cannot NewParametersFromLiteral: ring RP cannot be generated")
+	}
 
 	params.paramsQP = mkrlwe.NewParameters(rlweParamsQP, 3)
 	params.paramsQMulP = mkrlwe.NewParameters(rlweParamsQMulP, 3)
@@ -89,20 +84,21 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 	params.CRS[0] = params.paramsRP.CRS[0]
 	params.CRS[1] = params.paramsRP.CRS[1]
 
-	conv := NewFastBasisExtender(params.paramsQP.RingP(), params.paramsQP.RingQ(),
-		params.paramsQMulP.RingQ(), params.paramsRP.RingQ(),
-	)
+	/*
+		conv := NewFastBasisExtender(params.paramsQP.RingP(), params.paramsQP.RingQ(),
+			params.paramsQMulP.RingQ(), params.paramsRP.RingQ(),
+		)
 
-	// apply GadgetTransform
-	conv.GadgetTransform(params.paramsQP.CRS[0], params.paramsQMulP.CRS[0], params.CRS[0])
-	conv.GadgetTransform(params.paramsQP.CRS[1], params.paramsQMulP.CRS[1], params.CRS[1])
-
+		// apply GadgetTransform
+		conv.GadgetTransform(params.paramsQP.CRS[0], params.paramsQMulP.CRS[0], params.CRS[0])
+		conv.GadgetTransform(params.paramsQP.CRS[1], params.paramsQMulP.CRS[1], params.CRS[1])
+	*/
 	return params
 }
 
 // RingQMul returns a pointer to the ring of the extended basis for multiplication
 func (p Parameters) RingQMul() *ring.Ring {
-	return p.ringQMul
+	return p.paramsQMulP.RingQ()
 }
 
 func (p Parameters) RingQ() *ring.Ring {
@@ -122,11 +118,15 @@ func (p Parameters) RingQMulP() *rlwe.RingQP {
 }
 
 func (p Parameters) RingR() *ring.Ring {
-	return p.ringR
+	return p.paramsRP.RingQ()
 }
 
 func (p Parameters) RingRP() *rlwe.RingQP {
 	return &rlwe.RingQP{p.RingR(), p.RingP()}
+}
+
+func (p Parameters) RingQQMul() *rlwe.RingQP {
+	return &rlwe.RingQP{p.RingQ(), p.RingQMul()}
 }
 
 // T returns the plaintext coefficient modulus t
@@ -148,11 +148,11 @@ func (p Parameters) PCount() int {
 }
 
 func (p Parameters) RCount() int {
-	return len(p.RingR().Modulus)
+	return p.paramsRP.QCount()
 }
 
 func (p Parameters) QMulCount() int {
-	return len(p.RingQMul().Modulus)
+	return p.paramsQMulP.QCount()
 }
 
 func (p Parameters) N() int {

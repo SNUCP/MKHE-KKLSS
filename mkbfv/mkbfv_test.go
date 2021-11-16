@@ -14,29 +14,28 @@ import "math/big"
 import "math/bits"
 
 func GetTestName(params Parameters, opname string) string {
-	return fmt.Sprintf("%slogN=%d/logQP=%d/",
+	return fmt.Sprintf("%slogN=%d/logQP=%d/logQMulP=%d/",
 		opname,
 		params.paramsQP.LogN(),
 		params.paramsQP.LogQP(),
+		params.paramsQMulP.LogQP(),
 	)
 }
 
-var PN15QP840 = ParametersLiteral{
+var PN15QP873 = ParametersLiteral{
 	LogN: 15,
 	Q: []uint64{
-		0x200000440001, 0x200000500001, 0x200000620001,
-		0x1fffff980001, 0x2000006a0001, 0x1fffff7e0001,
-		0x200000860001, 0x200000a60001, 0x200000aa0001,
-		0x200000b20001, 0x200000c80001, 0x1fffff360001,
+		0x200000440001, 0x200000500001, 0x200000620001, 0x1fffff980001,
+		0x2000006a0001, 0x1fffff7e0001, 0x200000860001, 0x200000a60001,
+		0x200000aa0001, 0x200000b20001, 0x200000c80001, 0x1fffff360001,
 		0x200000e20001, 0x1fffff060001, 0x200000fe0001,
 	}, // 15x45
-	QMul: []uint64{
-		0x1ffffede0001, 0x1ffffeca0001, 0x1ffffeb40001,
-		0x200001520001, 0x1ffffe760001, 0x2000019a0001,
-		0x1ffffe640001, 0x200001a00001, 0x1ffffe520001,
-		0x200001e80001, 0x1ffffe0c0001, 0x1ffffdee0001,
-		0x200002480001, 0x2000000a0001, 0x2000000e0001,
-	}, // 15x45
+	QMul: []uint64{0x1ffffede0001,
+		0x1ffffeca0001, 0x1ffffeb40001, 0x200001520001, 0x1ffffe760001,
+		0x2000019a0001, 0x1ffffe640001, 0x200001a00001, 0x1ffffe520001,
+		0x40000001b0001, 0x3ffffffdf0001, 0x4000000270001,
+		0x7fffffffe0001, 0x80000001c0001, 0x80000002c0001,
+	}, // 9x45 + 3*50 + 3*51
 	P: []uint64{
 		0x80000000440001, 0x7fffffffba0001, 0x80000000500001,
 	}, // 3x55
@@ -162,7 +161,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 }
 
 func TestMKBFV(t *testing.T) {
-	defaultParams := []ParametersLiteral{PN15QP840}
+	defaultParams := []ParametersLiteral{PN15QP873}
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
@@ -185,8 +184,8 @@ func TestMKBFV(t *testing.T) {
 		testEvaluatorSub(testContext, userList[:2], t)
 		testEvaluatorSub(testContext, userList[:4], t)
 
+		testEvaluatorMul(testContext, userList[:1], t)
 		testEvaluatorMul(testContext, userList[:2], t)
-		testEvaluatorMul(testContext, userList[:4], t)
 	}
 }
 
@@ -207,27 +206,6 @@ func newTestVectors(testContext *testParams, id string, a, b int64) (msg *Messag
 
 	return msg, ciphertext
 }
-
-/*
-func testRelinKeyGen(testContext *testParams, t *testing.T) {
-
-	// Checks that internal product works properly
-	// 1) generate two pk (-as+e, a)
-	// 2) generate sg
-	// 3) check Interal(-as+e, sg) similar to -as^2
-	params := testContext.params
-	keygen := testContext.kgen
-
-	levelQ := params.QCount() - 1
-	levelQMul := params.QMulCount() - 1
-	levelP := params.PCount() - 1
-	levelR := params.RCount() - 1
-
-	t.Run(GetTestName(params, "MKBFVRLKGen/"), func(t *testing.T) {
-
-	})
-}
-*/
 
 func testEncAndDec(testContext *testParams, userList []string, t *testing.T) {
 	params := testContext.params
@@ -264,7 +242,7 @@ func testEvaluatorAdd(testContext *testParams, userList []string, t *testing.T) 
 	eval := testContext.evaluator
 
 	for i := range userList {
-		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], -2, 2)
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], -100, -20)
 	}
 
 	ct := ctList[0]
@@ -284,7 +262,7 @@ func testEvaluatorAdd(testContext *testParams, userList []string, t *testing.T) 
 
 		for i := range msgRes.Value {
 			delta := msgRes.Value[i] - msg.Value[i]
-			require.GreaterOrEqual(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgRes.Value[i], msg.Value[i]))
+			require.Equal(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgRes.Value[i], msg.Value[i]))
 		}
 	})
 
@@ -319,7 +297,7 @@ func testEvaluatorSub(testContext *testParams, userList []string, t *testing.T) 
 
 		for i := range msgRes.Value {
 			delta := msgRes.Value[i] - msg.Value[i]
-			require.GreaterOrEqual(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgRes.Value[i], msg.Value[i]))
+			require.Equal(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgRes.Value[i], msg.Value[i]))
 		}
 	})
 
@@ -335,7 +313,7 @@ func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) 
 	eval := testContext.evaluator
 
 	for i := range userList {
-		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], -2, 2)
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], -4, 4)
 	}
 
 	ct := ctList[0]
@@ -359,7 +337,7 @@ func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) 
 
 		for i := range msgRes.Value {
 			delta := msgRes.Value[i] - msg.Value[i]
-			require.GreaterOrEqual(t, int64(0), delta, fmt.Sprintf("%v vs %v", msgRes.Value[i], msg.Value[i]))
+			require.Equal(t, int64(0), delta, fmt.Sprintf("%v: %v vs %v", i, msgRes.Value[i], msg.Value[i]))
 		}
 	})
 

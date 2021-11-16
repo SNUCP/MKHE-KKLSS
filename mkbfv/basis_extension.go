@@ -83,9 +83,8 @@ func (conv *FastBasisExtender) ModUpQtoRAndNTT(polyQ, polyR *ring.Poly) {
 
 	levelQ := len(conv.ringQ.Modulus) - 1
 	levelQMul := len(conv.ringQMul.Modulus) - 1
-	levelR := len(conv.ringR.Modulus) - 1
 
-	conv.baseconverter.ModUpQtoP(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul)
+	conv.baseconverter.ModUpQtoP(levelQ, levelQMul, polyQ, conv.polypoolQMul)
 
 	for i := 0; i < levelQ+1; i++ {
 		copy(polyR.Coeffs[i], polyQ.Coeffs[i])
@@ -95,7 +94,7 @@ func (conv *FastBasisExtender) ModUpQtoRAndNTT(polyQ, polyR *ring.Poly) {
 		copy(polyR.Coeffs[i+levelQ+1], conv.polypoolQMul.Coeffs[i])
 	}
 
-	conv.ringR.NTTLvl(levelR, polyR, polyR)
+	conv.ringR.NTT(polyR, polyR)
 }
 
 func (conv *FastBasisExtender) Quantize(polyR *ring.Poly, t uint64, polyQ *ring.Poly) {
@@ -107,16 +106,16 @@ func (conv *FastBasisExtender) Quantize(polyR *ring.Poly, t uint64, polyQ *ring.
 	}
 
 	for i := 0; i < levelQ+1; i++ {
-		copy(polyR.Coeffs[i], conv.polypoolQ.Coeffs[i])
+		copy(conv.polypoolQ.Coeffs[i], polyR.Coeffs[i])
 	}
 
 	for i := 0; i < levelQ+1; i++ {
-		copy(polyR.Coeffs[levelQ+1+i], conv.polypoolQMul.Coeffs[i])
+		copy(conv.polypoolQMul.Coeffs[i], polyR.Coeffs[i+levelQ+1])
 	}
 
 	// Aplies inverse NTT
-	conv.ringQ.InvNTTLazyLvl(levelQ, conv.polypoolQ, conv.polypoolQ)
-	conv.ringQMul.InvNTTLazyLvl(levelQMul, conv.polypoolQMul, conv.polypoolQMul)
+	conv.ringQ.InvNTT(conv.polypoolQ, conv.polypoolQ)
+	conv.ringQMul.InvNTT(conv.polypoolQMul, conv.polypoolQMul)
 
 	// Extends the basis Q of ct(x) to the basis P and Divides (ct(x)Q -> P) by Q
 	conv.baseconverter.ModDownQPtoP(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul, conv.polypoolQMul)
@@ -128,7 +127,6 @@ func (conv *FastBasisExtender) Quantize(polyR *ring.Poly, t uint64, polyQ *ring.
 
 	// Option (2) (ct(x)/Q)*T, doing so only requires that Q*P > Q*Q, faster but adds error ~|T|
 	conv.ringQ.MulScalar(conv.polypoolQ, t, polyQ)
-
 }
 
 func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.SwitchingKey) {
@@ -174,6 +172,9 @@ func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.Sw
 		conv.modUpQPtoRP(swkQP.Value[i], swkRP.Value[i])
 		conv.ringR.MulScalarBigint(swkRP.Value[i].Q, InvQMulModQi, swkRP.Value[i].Q)
 		conv.ringP.MulScalarBigint(swkRP.Value[i].P, InvQMulModQi, swkRP.Value[i].P)
+
+		conv.ringR.MulScalarBigint(swkRP.Value[i].Q, QMul, swkRP.Value[i].Q)
+		conv.ringP.MulScalarBigint(swkRP.Value[i].P, QMul, swkRP.Value[i].P)
 	}
 
 	//transform QMul part
@@ -189,6 +190,9 @@ func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.Sw
 		conv.modUpQMulPtoRP(swkQMulP.Value[i], swkRP.Value[i+beta])
 		conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, InvQModQMuli, swkRP.Value[i+beta].Q)
 		conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, InvQModQMuli, swkRP.Value[i+beta].P)
+
+		conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, Q, swkRP.Value[i+beta].Q)
+		conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, Q, swkRP.Value[i+beta].P)
 	}
 
 	// apply MForm
