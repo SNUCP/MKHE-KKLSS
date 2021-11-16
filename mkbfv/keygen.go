@@ -39,7 +39,7 @@ func (keygen *KeyGenerator) GenSecretKey(id string) (sk *SecretKey) {
 	sk.SecretKey = mkrlwe.NewSecretKey(params.paramsQP, id)
 	sk.ValueQP = sk.SecretKey.Value
 	sk.ValueQMulP = ringQMulP.NewPoly()
-	//sk.ValueRP = keygen.params.RingRP().NewPoly()
+	sk.ValueRP = keygen.params.RingRP().NewPoly()
 	sk.ValueRP = keygen.keygenRP.GenSecretKey(id).Value
 	sk.ID = id
 

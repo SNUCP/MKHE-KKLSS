@@ -117,16 +117,28 @@ func (conv *FastBasisExtender) Quantize(polyR *ring.Poly, t uint64, polyQ *ring.
 	conv.ringQ.InvNTT(conv.polypoolQ, conv.polypoolQ)
 	conv.ringQMul.InvNTT(conv.polypoolQMul, conv.polypoolQMul)
 
-	// Extends the basis Q of ct(x) to the basis P and Divides (ct(x)Q -> P) by Q
-	conv.baseconverter.ModDownQPtoP(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul, conv.polypoolQMul)
+	temp := big.NewInt(int64(t))
+	temp.Mul(temp, conv.ringQMul.ModulusBigint)
+	temp.Div(temp, conv.ringQ.ModulusBigint)
 
-	// Centers (ct(x)Q -> P)/Q by (P-1)/2 and extends ((ct(x)Q -> P)/Q) to the basis Q
-	conv.ringQMul.AddScalarBigint(conv.polypoolQMul, conv.QMulHalf, conv.polypoolQMul)
-	conv.baseconverter.ModUpPtoQ(levelQMul, levelQ, conv.polypoolQMul, conv.polypoolQ)
-	conv.ringQ.SubScalarBigint(conv.polypoolQ, conv.QMulHalf, conv.polypoolQ)
+	conv.ringQ.MulScalarBigint(conv.polypoolQ, temp, conv.polypoolQ)
+	conv.ringQMul.MulScalarBigint(conv.polypoolQMul, temp, conv.polypoolQMul)
 
-	// Option (2) (ct(x)/Q)*T, doing so only requires that Q*P > Q*Q, faster but adds error ~|T|
-	conv.ringQ.MulScalar(conv.polypoolQ, t, polyQ)
+	conv.baseconverter.ModDownQPtoQ(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul, polyQ)
+
+	/*
+		// Extends the basis Q of ct(x) to the basis P and Divides (ct(x)Q -> P) by Q
+		conv.baseconverter.ModDownQPtoP(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul, conv.polypoolQMul)
+
+		// Centers (ct(x)Q -> P)/Q by (P-1)/2 and extends ((ct(x)Q -> P)/Q) to the basis Q
+		conv.ringQMul.AddScalarBigint(conv.polypoolQMul, conv.QMulHalf, conv.polypoolQMul)
+		conv.baseconverter.ModUpPtoQ(levelQMul, levelQ, conv.polypoolQMul, conv.polypoolQ)
+		conv.ringQ.SubScalarBigint(conv.polypoolQ, conv.QMulHalf, conv.polypoolQ)
+
+		// Option (2) (ct(x)/Q)*T, doing so only requires that Q*P > Q*Q, faster but adds error ~|T|
+		conv.ringQ.MulScalar(conv.polypoolQ, t, polyQ)
+	*/
+
 }
 
 func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.SwitchingKey) {
