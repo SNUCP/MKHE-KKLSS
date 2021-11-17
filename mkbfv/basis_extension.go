@@ -206,11 +206,11 @@ func (conv *FastBasisExtender) Quantize(polyR *ring.Poly, polyQ *ring.Poly) {
 	conv.ringQ2.MulScalarBigint(conv.polypoolQ2, conv.quant_factor, conv.polypoolQ2)
 
 	// ModDown by Q2
-	conv.convQQ2.ModDownQPtoP(levelQ, levelQ2, conv.polypoolQ, conv.polypoolQ2, conv.polypoolQ)
-	conv.convQ1Q2.ModDownQPtoP(levelQ1, levelQ2, conv.polypoolQ1, conv.polypoolQ2, conv.polypoolQ1)
+	conv.convQQ2.ModDownQPtoQ(levelQ, levelQ2, conv.polypoolQ, conv.polypoolQ2, conv.polypoolQ)
+	conv.convQ1Q2.ModDownQPtoQ(levelQ1, levelQ2, conv.polypoolQ1, conv.polypoolQ2, conv.polypoolQ1)
 
 	// ModDown by Q1
-	conv.convQQ1.ModDownQPtoP(levelQ, levelQ1, conv.polypoolQ, conv.polypoolQ1, polyQ)
+	conv.convQQ1.ModDownQPtoQ(levelQ, levelQ1, conv.polypoolQ, conv.polypoolQ1, polyQ)
 
 }
 

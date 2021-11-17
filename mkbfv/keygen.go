@@ -54,7 +54,6 @@ func (keygen *KeyGenerator) GenSecretKey(id string) (sk *SecretKey) {
 	levelQ := keygen.params.QCount() - 1
 	levelQ1 := levelQ
 	levelQ2 := levelQ
-	beta := levelQ + 1
 
 	sk.ValueQP.P.Copy(sk.ValueRP.P)
 	for i := 0; i < levelQ+1; i++ {
@@ -63,12 +62,12 @@ func (keygen *KeyGenerator) GenSecretKey(id string) (sk *SecretKey) {
 
 	sk.ValueQ1P.P.Copy(sk.ValueRP.P)
 	for i := 0; i < levelQ1+1; i++ {
-		copy(sk.ValueQ1P.Q.Coeffs[i], sk.ValueRP.Q.Coeffs[i+beta])
+		copy(sk.ValueQ1P.Q.Coeffs[i], sk.ValueRP.Q.Coeffs[i+levelQ+1])
 	}
 
 	sk.ValueQ2P.P.Copy(sk.ValueRP.P)
 	for i := 0; i < levelQ2+1; i++ {
-		copy(sk.ValueQ2P.Q.Coeffs[i], sk.ValueRP.Q.Coeffs[i+2*beta])
+		copy(sk.ValueQ2P.Q.Coeffs[i], sk.ValueRP.Q.Coeffs[i+2*(levelQ+1)])
 	}
 
 	return sk
