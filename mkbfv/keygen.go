@@ -75,35 +75,35 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *mkrlwe
 
 	id := sk.ID
 
+	skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+	rQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+
+	skQMulP := mkrlwe.NewSecretKey(params.paramsQMulP, id)
+	rQMulP := mkrlwe.NewSecretKey(params.paramsQMulP, id)
+
+	skQP.Value = sk.ValueQP
+	rQP.Value = r.ValueQP
+
+	skQMulP.Value = sk.ValueQMulP
+	rQMulP.Value = r.ValueQMulP
+
+	// gen rlk in mod QP and QMulP
+	rlkQP := keygen.keygenQP.GenRelinearizationKey(skQP, rQP)
+	rlkQMulP := keygen.keygenQMulP.GenRelinearizationKey(skQMulP, rQMulP)
+
+	// apply GadgetTransform
+	rlk = mkrlwe.NewRelinearizationKey(params.paramsRP, id)
+	keygen.baseconv.GadgetTransform(rlkQP.Value[0], rlkQMulP.Value[0], rlk.Value[0])
+	keygen.baseconv.GadgetTransform(rlkQP.Value[1], rlkQMulP.Value[1], rlk.Value[1])
+	keygen.baseconv.GadgetTransform(rlkQP.Value[2], rlkQMulP.Value[2], rlk.Value[2])
 	/*
-		skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
-		rQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+		skRP := mkrlwe.NewSecretKey(params.paramsRP, id)
+		rRP := mkrlwe.NewSecretKey(params.paramsRP, id)
 
-		skQMulP := mkrlwe.NewSecretKey(params.paramsQMulP, id)
-		rQMulP := mkrlwe.NewSecretKey(params.paramsQMulP, id)
+		skRP.Value.Copy(sk.ValueRP)
+		rRP.Value.Copy(r.ValueRP)
 
-		skQP.Value = sk.ValueQP
-		rQP.Value = r.ValueQP
-
-		skQMulP.Value = sk.ValueQMulP
-		rQMulP.Value = r.ValueQMulP
-
-		// gen rlk in mod QP and QMulP
-		rlkQP := keygen.keygenQP.GenRelinearizationKey(skQP, rQP)
-		rlkQMulP := keygen.keygenQMulP.GenRelinearizationKey(skQMulP, rQMulP)
-
-		// apply GadgetTransform
-		rlk = mkrlwe.NewRelinearizationKey(params.paramsRP, id)
-		keygen.baseconv.GadgetTransform(rlkQP.Value[0], rlkQMulP.Value[0], rlk.Value[0])
-		keygen.baseconv.GadgetTransform(rlkQP.Value[1], rlkQMulP.Value[1], rlk.Value[1])
-		keygen.baseconv.GadgetTransform(rlkQP.Value[2], rlkQMulP.Value[2], rlk.Value[2])
+		rlk = keygen.keygenRP.GenRelinearizationKey(skRP, rRP)
 	*/
-	skRP := mkrlwe.NewSecretKey(params.paramsRP, id)
-	rRP := mkrlwe.NewSecretKey(params.paramsRP, id)
-
-	skRP.Value.Copy(sk.ValueRP)
-	rRP.Value.Copy(r.ValueRP)
-
-	rlk = keygen.keygenRP.GenRelinearizationKey(skRP, rRP)
 	return rlk
 }

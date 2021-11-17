@@ -84,15 +84,14 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 	params.CRS[0] = params.paramsRP.CRS[0]
 	params.CRS[1] = params.paramsRP.CRS[1]
 
-	/*
-		conv := NewFastBasisExtender(params.paramsQP.RingP(), params.paramsQP.RingQ(),
-			params.paramsQMulP.RingQ(), params.paramsRP.RingQ(),
-		)
+	conv := NewFastBasisExtender(params.paramsQP.RingP(), params.paramsQP.RingQ(),
+		params.paramsQMulP.RingQ(), params.paramsRP.RingQ(),
+	)
 
-		// apply GadgetTransform
-		conv.GadgetTransform(params.paramsQP.CRS[0], params.paramsQMulP.CRS[0], params.CRS[0])
-		conv.GadgetTransform(params.paramsQP.CRS[1], params.paramsQMulP.CRS[1], params.CRS[1])
-	*/
+	// apply GadgetTransform
+	conv.GadgetTransform(params.paramsQP.CRS[0], params.paramsQMulP.CRS[0], params.CRS[0])
+	conv.GadgetTransform(params.paramsQP.CRS[1], params.paramsQMulP.CRS[1], params.CRS[1])
+
 	return params
 }
 
