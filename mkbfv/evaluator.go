@@ -5,11 +5,10 @@ import "mk-lattigo/mkrlwe"
 import "github.com/ldsec/lattigo/v2/ring"
 
 type Evaluator struct {
-	params    Parameters
-	kswRP     *mkrlwe.KeySwitcher
-	kswQP     *mkrlwe.KeySwitcher
-	conv      *FastBasisExtender
-	polypoolR [3]*ring.Poly
+	params Parameters
+	kswRP  *mkrlwe.KeySwitcher
+	kswQP  *mkrlwe.KeySwitcher
+	conv   *FastBasisExtender
 }
 
 // NewEvaluator creates a new Evaluator, that can be used to do homomorphic
@@ -20,13 +19,7 @@ func NewEvaluator(params Parameters) *Evaluator {
 	eval.params = params
 	eval.kswRP = mkrlwe.NewKeySwitcher(params.paramsRP)
 	eval.kswQP = mkrlwe.NewKeySwitcher(params.paramsQP)
-	eval.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQ1(), params.RingQ2(), params.RingR(), params.T())
-
-	ringR := params.RingR()
-	eval.polypoolR = [3]*ring.Poly{ringR.NewPoly(), ringR.NewPoly(), ringR.NewPoly()}
-	eval.polypoolR[0].IsNTT = true
-	eval.polypoolR[1].IsNTT = true
-	eval.polypoolR[2].IsNTT = true
+	eval.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQ1(), params.RingR())
 
 	return eval
 }
@@ -57,7 +50,12 @@ func (eval *Evaluator) modUpAndNTT(ctQ, ctR *mkrlwe.Ciphertext) {
 	for id := range ctQ.Value {
 		eval.conv.ModUpQtoRAndNTT(ctQ.Value[id], ctR.Value[id])
 	}
+}
 
+func (eval *Evaluator) modUpAndRescaleNTT(ctQ, ctR *mkrlwe.Ciphertext) {
+	for id := range ctQ.Value {
+		eval.conv.RescaleNTT(ctQ.Value[id], ctR.Value[id])
+	}
 }
 
 // Add adds op0 to op1 and returns the result in ctOut.
@@ -114,11 +112,11 @@ func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 	ctOutR := mkrlwe.NewCiphertextNTT(eval.params.paramsRP, ctOut.IDSet(), eval.params.paramsRP.MaxLevel())
 
 	eval.modUpAndNTT(ct0.Ciphertext, ct0R)
-	eval.modUpAndNTT(ct1.Ciphertext, ct1R)
+	eval.modUpAndRescaleNTT(ct1.Ciphertext, ct1R)
 
 	eval.kswRP.MulAndRelin(ct0R, ct1R, rlkSet, ctOutR)
 
 	for id := range ctOutR.Value {
-		eval.conv.Quantize(ctOutR.Value[id], ctOut.Value[id])
+		eval.conv.Quantize(ctOutR.Value[id], ctOut.Value[id], eval.params.T())
 	}
 }

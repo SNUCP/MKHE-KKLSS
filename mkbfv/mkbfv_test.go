@@ -14,40 +14,34 @@ import "math/big"
 import "math/bits"
 
 func GetTestName(params Parameters, opname string) string {
-	return fmt.Sprintf("%slogN=%d/logQP=%d/logQ1P=%d/logQ2P=%d/logRP=%d/",
+	return fmt.Sprintf("%slogN=%d/logQP=%d/logQ1P=%d/logRP=%d/",
 		opname,
 		params.paramsQP.LogN(),
 		params.paramsQP.LogQP(),
 		params.paramsQ1P.LogQP(),
-		params.paramsQ2P.LogQP(),
 		params.paramsRP.LogQP(),
 	)
 }
 
 var PN15QP873 = ParametersLiteral{
 	LogN: 15,
+
 	Q: []uint64{
-		// 12 x 45
-		0x2000000a0001, 0x2000000e0001, 0x1fffffc20001,
-		0x200000440001, 0x200000500001, 0x200000620001,
-		0x1fffff980001, 0x2000006a0001, 0x1fffff7e0001,
-		0x200000860001, //0x200000a60001, 0x200000aa0001,
-	},
-	Q1: []uint64{
 		// 12 x 45
 		0x200000b20001, 0x200000c80001, 0x1fffff360001,
 		0x200000e20001, 0x1fffff060001, 0x200000fe0001,
 		0x1ffffede0001, 0x1ffffeca0001, 0x1ffffeb40001,
-		0x200001520001, //0x1ffffe760001, 0x2000019a0001,
+		0x200001520001, 0x1ffffe760001, 0x2000019a0001,
 	},
 
-	Q2: []uint64{
-		// 45 x 9 + 50 x 3
-		0x1ffffe640001, 0x200001a00001, 0x1ffffe520001,
-		0x200001e80001, 0x1ffffe0c0001, 0x1ffffdee0001,
-		0x200002480001, 0x1ffffdb60001, 0x200002560001,
-		0x40000001b0001, //0x3ffffffdf0001, 0x4000000270001,
+	Q1: []uint64{
+		// 12 x 45
+		0x2000000a0001, 0x2000000e0001, 0x1fffffc20001,
+		0x200000440001, 0x200000500001, 0x200000620001,
+		0x1fffff980001, 0x2000006a0001, 0x1fffff7e0001,
+		0x200000860001, 0x200000a60001, 0x200000aa0001,
 	},
+
 	P: []uint64{
 		// 55 x 4 + 51 x 2
 		0x80000000440001, 0x7fffffffba0001, 0x80000000500001,

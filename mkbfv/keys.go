@@ -8,7 +8,6 @@ type SecretKey struct {
 	*mkrlwe.SecretKey
 	ValueQP  rlwe.PolyQP
 	ValueQ1P rlwe.PolyQP
-	ValueQ2P rlwe.PolyQP
 	ValueRP  rlwe.PolyQP
 	ID       string
 }
