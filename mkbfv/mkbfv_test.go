@@ -14,31 +14,45 @@ import "math/big"
 import "math/bits"
 
 func GetTestName(params Parameters, opname string) string {
-	return fmt.Sprintf("%slogN=%d/logQP=%d/logQMulP=%d/",
+	return fmt.Sprintf("%slogN=%d/logQP=%d/logQ1P=%d/logQ2P=%d/logRP=%d/",
 		opname,
 		params.paramsQP.LogN(),
 		params.paramsQP.LogQP(),
-		params.paramsQMulP.LogQP(),
+		params.paramsQ1P.LogQP(),
+		params.paramsQ2P.LogQP(),
+		params.paramsRP.LogQP(),
 	)
 }
 
 var PN15QP873 = ParametersLiteral{
 	LogN: 15,
 	Q: []uint64{
-		0x200000440001, 0x200000500001, 0x200000620001, 0x1fffff980001,
-		0x2000006a0001, 0x1fffff7e0001, 0x200000860001, 0x200000a60001,
-		0x200000aa0001, 0x200000b20001, 0x200000c80001, 0x1fffff360001,
+		// 12 x 45
+		0x2000000a0001, 0x2000000e0001, 0x1fffffc20001,
+		0x200000440001, 0x200000500001, 0x200000620001,
+		0x1fffff980001, 0x2000006a0001, 0x1fffff7e0001,
+		0x200000860001, //0x200000a60001, 0x200000aa0001,
+	},
+	Q1: []uint64{
+		// 12 x 45
+		0x200000b20001, 0x200000c80001, 0x1fffff360001,
 		0x200000e20001, 0x1fffff060001, 0x200000fe0001,
-	}, // 15x45
-	QMul: []uint64{0x7ffffffffe70001, 0x7ffffffffe10001, 0x7ffffffffcc0001, // 59 + 59 + 59 bits
-		0x400000000270001, 0x400000000350001, 0x400000000360001, // 58 + 58 + 58 bits
-		0x3ffffffffc10001, 0x3ffffffffbe0001, 0x3ffffffffbd0001, // 58 + 58 + 58 bits
-		0x4000000004d0001, 0x400000000570001, 0x400000000660001, // 58 + 58 + 58 bits
-		0x8000000009d0001, 0x7ffffffff630001, 0x800000000a70001,
-	}, // 9x45 + 3*50 + 3*51
+		0x1ffffede0001, 0x1ffffeca0001, 0x1ffffeb40001,
+		0x200001520001, //0x1ffffe760001, 0x2000019a0001,
+	},
+
+	Q2: []uint64{
+		// 45 x 9 + 50 x 3
+		0x1ffffe640001, 0x200001a00001, 0x1ffffe520001,
+		0x200001e80001, 0x1ffffe0c0001, 0x1ffffdee0001,
+		0x200002480001, 0x1ffffdb60001, 0x200002560001,
+		0x40000001b0001, //0x3ffffffdf0001, 0x4000000270001,
+	},
 	P: []uint64{
+		// 55 x 4 + 51 x 2
 		0x80000000440001, 0x7fffffffba0001, 0x80000000500001,
-	}, // 3x55
+		0x7fffffffaa0001, 0x80000002c0001, 0x7ffffffd20001,
+	},
 	T:     65537,
 	Sigma: rlwe.DefaultSigma,
 }
@@ -165,7 +179,7 @@ func TestMKBFV(t *testing.T) {
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
-		maxUsers := 4
+		maxUsers := 8
 		userList := make([]string, maxUsers)
 		idset := mkrlwe.NewIDSet()
 
@@ -184,8 +198,9 @@ func TestMKBFV(t *testing.T) {
 		testEvaluatorSub(testContext, userList[:2], t)
 		testEvaluatorSub(testContext, userList[:4], t)
 
-		testEvaluatorMul(testContext, userList[:1], t)
 		testEvaluatorMul(testContext, userList[:2], t)
+		testEvaluatorMul(testContext, userList[:4], t)
+		testEvaluatorMul(testContext, userList[:8], t)
 	}
 }
 
@@ -313,7 +328,7 @@ func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) 
 	eval := testContext.evaluator
 
 	for i := range userList {
-		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], -4, 4)
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], 0, 10)
 	}
 
 	ct := ctList[0]

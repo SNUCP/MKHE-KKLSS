@@ -20,7 +20,7 @@ func NewEvaluator(params Parameters) *Evaluator {
 	eval.params = params
 	eval.kswRP = mkrlwe.NewKeySwitcher(params.paramsRP)
 	eval.kswQP = mkrlwe.NewKeySwitcher(params.paramsQP)
-	eval.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQMul(), params.RingR())
+	eval.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQ1(), params.RingQ2(), params.RingR(), params.T())
 
 	ringR := params.RingR()
 	eval.polypoolR = [3]*ring.Poly{ringR.NewPoly(), ringR.NewPoly(), ringR.NewPoly()}
@@ -119,6 +119,6 @@ func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 	eval.kswRP.MulAndRelin(ct0R, ct1R, rlkSet, ctOutR)
 
 	for id := range ctOutR.Value {
-		eval.conv.Quantize(ctOutR.Value[id], eval.params.T(), ctOut.Value[id])
+		eval.conv.Quantize(ctOutR.Value[id], ctOut.Value[id])
 	}
 }

@@ -12,7 +12,8 @@ import "github.com/ldsec/lattigo/v2/rlwe"
 type ParametersLiteral struct {
 	LogN    int // Log Ring degree (power of 2)
 	Q       []uint64
-	QMul    []uint64
+	Q1      []uint64
+	Q2      []uint64
 	P       []uint64
 	LogQ    []int   `json:",omitempty"`
 	LogQMul []int   `json:",omitempty"`
@@ -25,29 +26,31 @@ type ParametersLiteral struct {
 // immutable. See ParametersLiteral for user-specified parameters.
 // R = Q*QMul
 type Parameters struct {
-	paramsQP    mkrlwe.Parameters
-	paramsQMulP mkrlwe.Parameters
-	paramsRP    mkrlwe.Parameters
-	ringT       *ring.Ring
-	CRS         [2]*mkrlwe.SwitchingKey
+	paramsQP  mkrlwe.Parameters
+	paramsQ1P mkrlwe.Parameters
+	paramsQ2P mkrlwe.Parameters
+	paramsRP  mkrlwe.Parameters
+	ringT     *ring.Ring
+	CRS       [2]*mkrlwe.SwitchingKey
 }
 
 // NewParameters instantiate a set of MKCKKS parameters from the generic CKKS parameters and the CKKS-specific ones.
 // It returns the empty parameters Parameters{} and a non-nil error if the specified parameters are invalid.
 func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 
-	if len(pl.Q) != len(pl.QMul) {
-		panic("cannot NewParametersFromLiteral: length of Q & QMul is not equal")
+	if len(pl.Q) != len(pl.Q1) {
+		panic("cannot NewParametersFromLiteral: length of Q & Q1 is not equal")
 	}
 
-	if len(pl.Q)%3 != 0 {
-		panic("cannot NewParametersFromLiteral: length of Q is not a multiple of 3")
+	if len(pl.Q1) != len(pl.Q2) {
+		panic("cannot NewParametersFromLiteral: length of Q1 & Q2 is not equal")
 	}
 
 	N := (1 << pl.LogN)
 	R := make([]uint64, 0)
 	R = append(R, pl.Q...)
-	R = append(R, pl.QMul...)
+	R = append(R, pl.Q1...)
+	R = append(R, pl.Q2...)
 
 	ringT, err := ring.NewRing(N, []uint64{pl.T})
 	if err != nil {
@@ -63,41 +66,56 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 		panic("cannot NewParametersFromLiteral: ring QP cannot be generated")
 	}
 
-	rlweParamsQMulP, err := rlwe.NewParametersFromLiteral(
-		rlwe.ParametersLiteral{LogN: pl.LogN, Q: pl.QMul, P: pl.P, Sigma: pl.Sigma},
+	rlweParamsQ1P, err := rlwe.NewParametersFromLiteral(
+		rlwe.ParametersLiteral{LogN: pl.LogN, Q: pl.Q1, P: pl.P, Sigma: pl.Sigma},
 	)
 	if err != nil {
-		panic("cannot NewParametersFromLiteral: ring QMulP cannot be generated")
+		panic("cannot NewParametersFromLiteral: ring Q1P cannot be generated")
+	}
+
+	rlweParamsQ2P, err := rlwe.NewParametersFromLiteral(
+		rlwe.ParametersLiteral{LogN: pl.LogN, Q: pl.Q2, P: pl.P, Sigma: pl.Sigma},
+	)
+	if err != nil {
+		panic("cannot NewParametersFromLiteral: ring Q2P cannot be generated")
 	}
 
 	rlweParamsRP, err := rlwe.NewParametersFromLiteral(
 		rlwe.ParametersLiteral{LogN: pl.LogN, Q: R, P: pl.P, Sigma: pl.Sigma},
 	)
 	if err != nil {
+		panic(err)
 		panic("cannot NewParametersFromLiteral: ring RP cannot be generated")
+
 	}
 
 	params.paramsQP = mkrlwe.NewParameters(rlweParamsQP, 3)
-	params.paramsQMulP = mkrlwe.NewParameters(rlweParamsQMulP, 3)
+	params.paramsQ1P = mkrlwe.NewParameters(rlweParamsQ1P, 3)
+	params.paramsQ2P = mkrlwe.NewParameters(rlweParamsQ2P, 3)
 	params.paramsRP = mkrlwe.NewParameters(rlweParamsRP, 3)
 
 	params.CRS[0] = params.paramsRP.CRS[0]
 	params.CRS[1] = params.paramsRP.CRS[1]
 
-	conv := NewFastBasisExtender(params.paramsQP.RingP(), params.paramsQP.RingQ(),
-		params.paramsQMulP.RingQ(), params.paramsRP.RingQ(),
+	conv := NewFastBasisExtender(
+		params.paramsQP.RingP(), params.paramsQP.RingQ(),
+		params.paramsQ1P.RingQ(), params.paramsQ2P.RingQ(),
+		params.paramsRP.RingQ(), params.T(),
 	)
 
 	// apply GadgetTransform
-	conv.GadgetTransform(params.paramsQP.CRS[0], params.paramsQMulP.CRS[0], params.CRS[0])
-	conv.GadgetTransform(params.paramsQP.CRS[1], params.paramsQMulP.CRS[1], params.CRS[1])
+	conv.GadgetTransform(params.paramsQP.CRS[0], params.paramsQ1P.CRS[0], params.paramsQ2P.CRS[0], params.CRS[0])
+	conv.GadgetTransform(params.paramsQP.CRS[1], params.paramsQ1P.CRS[1], params.paramsQ2P.CRS[1], params.CRS[1])
 
 	return params
 }
 
-// RingQMul returns a pointer to the ring of the extended basis for multiplication
-func (p Parameters) RingQMul() *ring.Ring {
-	return p.paramsQMulP.RingQ()
+func (p Parameters) RingQ1() *ring.Ring {
+	return p.paramsQ1P.RingQ()
+}
+
+func (p Parameters) RingQ2() *ring.Ring {
+	return p.paramsQ2P.RingQ()
 }
 
 func (p Parameters) RingQ() *ring.Ring {
@@ -112,8 +130,12 @@ func (p Parameters) RingQP() *rlwe.RingQP {
 	return p.paramsQP.RingQP()
 }
 
-func (p Parameters) RingQMulP() *rlwe.RingQP {
-	return p.paramsQMulP.RingQP()
+func (p Parameters) RingQ1P() *rlwe.RingQP {
+	return p.paramsQ1P.RingQP()
+}
+
+func (p Parameters) RingQ2P() *rlwe.RingQP {
+	return p.paramsQ2P.RingQP()
 }
 
 func (p Parameters) RingR() *ring.Ring {
@@ -122,10 +144,6 @@ func (p Parameters) RingR() *ring.Ring {
 
 func (p Parameters) RingRP() *rlwe.RingQP {
 	return &rlwe.RingQP{p.RingR(), p.RingP()}
-}
-
-func (p Parameters) RingQQMul() *rlwe.RingQP {
-	return &rlwe.RingQP{p.RingQ(), p.RingQMul()}
 }
 
 // T returns the plaintext coefficient modulus t
@@ -150,8 +168,12 @@ func (p Parameters) RCount() int {
 	return p.paramsRP.QCount()
 }
 
-func (p Parameters) QMulCount() int {
-	return p.paramsQMulP.QCount()
+func (p Parameters) Q1Count() int {
+	return p.paramsQ1P.QCount()
+}
+
+func (p Parameters) Q2Count() int {
+	return p.paramsQ2P.QCount()
 }
 
 func (p Parameters) N() int {
