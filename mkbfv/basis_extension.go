@@ -16,6 +16,7 @@ type FastBasisExtender struct {
 
 	polypoolQ    *ring.Poly
 	polypoolQMul *ring.Poly
+	mFormQMul    *ring.Poly
 }
 
 func NewFastBasisExtender(ringP, ringQ, ringQMul, ringR *ring.Ring) (conv *FastBasisExtender) {
@@ -37,6 +38,10 @@ func NewFastBasisExtender(ringP, ringQ, ringQMul, ringR *ring.Ring) (conv *FastB
 
 	conv.polypoolQ = ringQ.NewPoly()
 	conv.polypoolQMul = ringQMul.NewPoly()
+
+	conv.mFormQMul = ringQ.NewPoly()
+	ringQ.AddScalarBigint(conv.mFormQMul, ringQMul.ModulusBigint, conv.mFormQMul)
+	ringQ.MForm(conv.mFormQMul, conv.mFormQMul)
 
 	return conv
 }
@@ -153,21 +158,8 @@ func (conv *FastBasisExtender) RescaleNTT(polyQ *ring.Poly, polyR *ring.Poly) {
 	levelQ := len(conv.ringQ.Modulus) - 1
 	levelQMul := levelQ
 
-	conv.ModUpQtoRAndNTT(polyQ, polyR)
-
-	for i := 0; i < levelQ+1; i++ {
-		copy(conv.polypoolQ.Coeffs[i], polyR.Coeffs[i])
-	}
-
-	for i := 0; i < levelQMul+1; i++ {
-		copy(conv.polypoolQMul.Coeffs[i], polyR.Coeffs[i+levelQ+1])
-	}
-
-	conv.ringQ.InvNTT(conv.polypoolQ, conv.polypoolQ)
-	conv.ringQMul.InvNTT(conv.polypoolQMul, conv.polypoolQMul)
-
-	conv.ringQ.MulScalarBigint(conv.polypoolQ, conv.ringQMul.ModulusBigint, conv.polypoolQ)
-	conv.ringQMul.MulScalarBigint(conv.polypoolQMul, conv.ringQMul.ModulusBigint, conv.polypoolQMul)
+	conv.ringQ.MulCoeffsMontgomery(polyQ, conv.mFormQMul, conv.polypoolQ)
+	conv.ringQMul.MulScalar(conv.polypoolQMul, 0, conv.polypoolQMul)
 	conv.convQQMul.ModDownQPtoP(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul, conv.polypoolQMul)
 
 	conv.ModUpQMultoRAndNTT(conv.polypoolQMul, polyR)

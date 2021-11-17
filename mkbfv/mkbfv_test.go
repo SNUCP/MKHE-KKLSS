@@ -173,7 +173,7 @@ func TestMKBFV(t *testing.T) {
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
-		maxUsers := 8
+		maxUsers := 32
 		userList := make([]string, maxUsers)
 		idset := mkrlwe.NewIDSet()
 
@@ -195,6 +195,8 @@ func TestMKBFV(t *testing.T) {
 		testEvaluatorMul(testContext, userList[:2], t)
 		testEvaluatorMul(testContext, userList[:4], t)
 		testEvaluatorMul(testContext, userList[:8], t)
+		testEvaluatorMul(testContext, userList[:16], t)
+		testEvaluatorMul(testContext, userList[:32], t)
 	}
 }
 
@@ -322,7 +324,7 @@ func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) 
 	eval := testContext.evaluator
 
 	for i := range userList {
-		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], 0, 10)
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], 0, 2)
 	}
 
 	ct := ctList[0]
