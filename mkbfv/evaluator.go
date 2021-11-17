@@ -19,7 +19,7 @@ func NewEvaluator(params Parameters) *Evaluator {
 	eval.params = params
 	eval.kswRP = mkrlwe.NewKeySwitcher(params.paramsRP)
 	eval.kswQP = mkrlwe.NewKeySwitcher(params.paramsQP)
-	eval.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQ1(), params.RingR())
+	eval.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQMul(), params.RingR())
 
 	return eval
 }

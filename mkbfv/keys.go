@@ -6,10 +6,10 @@ import "github.com/ldsec/lattigo/v2/rlwe"
 // SecretKeySet is a type for generic Multikey RLWE secret keys.
 type SecretKey struct {
 	*mkrlwe.SecretKey
-	ValueQP  rlwe.PolyQP
-	ValueQ1P rlwe.PolyQP
-	ValueRP  rlwe.PolyQP
-	ID       string
+	ValueQP    rlwe.PolyQP
+	ValueQMulP rlwe.PolyQP
+	ValueRP    rlwe.PolyQP
+	ID         string
 }
 
 // SecretKeySet is a type for a set of multikey RLWE secret keys.

@@ -14,11 +14,11 @@ import "math/big"
 import "math/bits"
 
 func GetTestName(params Parameters, opname string) string {
-	return fmt.Sprintf("%slogN=%d/logQP=%d/logQ1P=%d/logRP=%d/",
+	return fmt.Sprintf("%slogN=%d/logQP=%d/logQMulP=%d/logRP=%d/",
 		opname,
 		params.paramsQP.LogN(),
 		params.paramsQP.LogQP(),
-		params.paramsQ1P.LogQP(),
+		params.paramsQMulP.LogQP(),
 		params.paramsRP.LogQP(),
 	)
 }
@@ -34,7 +34,7 @@ var PN15QP873 = ParametersLiteral{
 		0x200001520001, 0x1ffffe760001, 0x2000019a0001,
 	},
 
-	Q1: []uint64{
+	QMul: []uint64{
 		// 12 x 45
 		0x2000000a0001, 0x2000000e0001, 0x1fffffc20001,
 		0x200000440001, 0x200000500001, 0x200000620001,
