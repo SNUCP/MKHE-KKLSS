@@ -14,7 +14,7 @@ func BenchmarkMKCKKS(b *testing.B) {
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
-		maxUsers := 32
+		maxUsers := 64
 		userList := make([]string, maxUsers)
 		idset := mkrlwe.NewIDSet()
 
@@ -30,6 +30,7 @@ func BenchmarkMKCKKS(b *testing.B) {
 		benchMulAndRelin(testContext, userList[:8], b)
 		benchMulAndRelin(testContext, userList[:16], b)
 		benchMulAndRelin(testContext, userList[:32], b)
+		benchMulAndRelin(testContext, userList[:64], b)
 	}
 }
 
