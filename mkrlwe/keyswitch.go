@@ -222,7 +222,6 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 	}
 }
 
-// MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
 func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySet, ctOut *Ciphertext) {
 	level := ctOut.Level()
 	idset := ctIn.IDSet()
@@ -248,8 +247,41 @@ func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySe
 
 	// c0 <- c0 + IP(c_i, rk_i)
 	for id := range idset.Value {
-		rk := rkSet.GetRotationKey(id, rotidx)
+		rk := rkSet.GetRotationKey(id, uint(rotidx))
 		ks.InternalProduct(level, ctOut.Value[id], rk.Value, ks.polyQPool[0])
+		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
+	}
+
+	// c_i <- IP(c_i, a)
+	a := params.CRS[0]
+	for id := range idset.Value {
+		ks.InternalProduct(level, ctOut.Value[id], a, ks.polyQPool[0])
+		ctOut.Value[id].Copy(ks.polyQPool[0])
+	}
+}
+
+func (ks *KeySwitcher) Conjugate(ctIn *Ciphertext, ckSet *ConjugationKeySet, ctOut *Ciphertext) {
+	level := ctOut.Level()
+	idset := ctIn.IDSet()
+	params := ks.Parameters
+	ringQ := params.RingQ()
+	galEl := params.GaloisElementForRowRotation()
+
+	// check ctIn level
+	if ctIn.Level() < level {
+		panic("Cannot Rotate: ctIn and ctOut have different levels")
+	}
+
+	// permute ctIn and put it to ctOut
+	index := ring.PermuteNTTIndex(galEl, uint64(params.N()))
+	for id := range ctIn.Value {
+		ring.PermuteNTTWithIndexLvl(level, ctIn.Value[id], index, ctOut.Value[id])
+	}
+
+	// c0 <- c0 + IP(c_i, rk_i)
+	for id := range idset.Value {
+		ck := ckSet.GetConjugationKey(id)
+		ks.InternalProduct(level, ctOut.Value[id], ck.Value, ks.polyQPool[0])
 		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
 	}
 

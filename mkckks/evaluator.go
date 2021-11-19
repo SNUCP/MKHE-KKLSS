@@ -441,12 +441,27 @@ func (eval *Evaluator) mulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 // If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
 func (eval *Evaluator) RotateNew(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.RotationKeySet) (ctOut *Ciphertext) {
 	ctOut = NewCiphertext(eval.params, ct0.IDSet(), ct0.Level(), ct0.Scale)
-	eval.Rotate(ct0, rotidx, rkSet, ctOut)
+	eval.rotate(ct0, rotidx, rkSet, ctOut)
 	return
 }
 
 // Rotate rotates the columns of ct0 by k positions to the left and returns the result in ctOut.
 // If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
-func (eval *Evaluator) Rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.RotationKeySet, ctOut *Ciphertext) {
+func (eval *Evaluator) rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.RotationKeySet, ctOut *Ciphertext) {
 	eval.ksw.Rotate(ct0.Ciphertext, rotidx, rkSet, ctOut.Ciphertext)
+}
+
+// ConjugateNew conjugates ct0 (which is equivalent to a row rotation) and returns the result in a newly
+// created element. If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key
+// for the row rotation needs to be provided.
+func (eval *Evaluator) ConjugateNew(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySet) (ctOut *Ciphertext) {
+	ctOut = NewCiphertext(eval.params, ct0.IDSet(), ct0.Level(), ct0.Scale)
+	eval.conjugate(ct0, ckSet, ctOut)
+	return
+}
+
+// Conjugate conjugates ct0 (which is equivalent to a row rotation) and returns the result in ctOut.
+// If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the row rotation needs to be provided.
+func (eval *Evaluator) conjugate(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySet, ctOut *Ciphertext) {
+	eval.ksw.Conjugate(ct0.Ciphertext, ckSet, ctOut.Ciphertext)
 }

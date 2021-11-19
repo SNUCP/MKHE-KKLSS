@@ -40,7 +40,13 @@ type RelinearizationKey struct {
 type RotationKey struct {
 	Value  *SwitchingKey
 	ID     string
-	RotIdx int
+	RotIdx uint
+}
+
+// CojugationKey is a type for storing generic RLWE public conjugation keys
+type ConjugationKey struct {
+	Value *SwitchingKey
+	ID    string
 }
 
 // RelinearizationKeySet is a type for a set of multikey RLWE relinearization keys.
@@ -50,7 +56,12 @@ type RelinearizationKeySet struct {
 
 //RotationKeysSet is a type for a set of multikey RLWE rotation keys.
 type RotationKeySet struct {
-	Value map[string]map[int]*RotationKey
+	Value map[string]map[uint]*RotationKey
+}
+
+// ConjugationKeySet is a type for a set of multikey RLWE relinearization keys.
+type ConjugationKeySet struct {
+	Value map[string]*ConjugationKey
 }
 
 // NewSecretKeySet returns a new empty SecretKeySet
@@ -111,7 +122,7 @@ func (pkSet *PublicKeySet) GetPublicKey(id string) *PublicKey {
 // NewRotationKeysSet returns a new empty RotationKeysSet
 func NewRotationKeysSet() *RotationKeySet {
 	rotSet := new(RotationKeySet)
-	rotSet.Value = make(map[string]map[int]*RotationKey)
+	rotSet.Value = make(map[string]map[uint]*RotationKey)
 
 	return rotSet
 }
@@ -122,7 +133,7 @@ func (rkSet *RotationKeySet) AddRotationKey(rk *RotationKey) {
 	_, ok := rkSet.Value[rk.ID]
 
 	if !ok {
-		rkSet.Value[rk.ID] = make(map[int]*RotationKey)
+		rkSet.Value[rk.ID] = make(map[uint]*RotationKey)
 	}
 
 	rkSet.Value[rk.ID][rk.RotIdx] = rk
@@ -130,12 +141,12 @@ func (rkSet *RotationKeySet) AddRotationKey(rk *RotationKey) {
 }
 
 // DelRotationKeys delete rotation keys of given id from RotationKeysSet
-func (rkSet *RotationKeySet) DelRotationKey(id string, rotidx int) {
+func (rkSet *RotationKeySet) DelRotationKey(id string, rotidx uint) {
 	delete(rkSet.Value[id], rotidx)
 }
 
 // GetRotationKeys returns a rotation keys of given id from RotationKeysSet
-func (rkSet *RotationKeySet) GetRotationKey(id string, rotidx int) *RotationKey {
+func (rkSet *RotationKeySet) GetRotationKey(id string, rotidx uint) *RotationKey {
 	_, in := rkSet.Value[id]
 	if !in {
 		panic("cannot GetRotationKeys: there is no rotation key with given id")
@@ -176,6 +187,34 @@ func (rlkSet *RelinearizationKeySet) GetRelinearizationKey(id string) *Relineari
 	return ret
 }
 
+// NewConjugationKeySet returns a new empty PublicKeySet
+func NewConjugationKeySet() *ConjugationKeySet {
+	cjkSet := new(ConjugationKeySet)
+	cjkSet.Value = make(map[string]*ConjugationKey)
+	return cjkSet
+}
+
+// AddConjugationKey insert new publickey into PublicKeySet with its id
+func (cjkSet *ConjugationKeySet) AddConjugationKey(cjk *ConjugationKey) {
+	cjkSet.Value[cjk.ID] = cjk
+}
+
+// DelConjugationKey delete publickey of given id from SecretKeySet
+func (cjkSet *ConjugationKeySet) DelConjugationKey(id string) {
+	delete(cjkSet.Value, id)
+}
+
+// GetConjugationKey returns a publickey of given id from PublicKeySet
+func (cjkSet *ConjugationKeySet) GetConjugationKey(id string) *ConjugationKey {
+	ret, in := cjkSet.Value[id]
+
+	if !in {
+		panic("cannot GetConjugationKey: there is no conjugation key with given id")
+	}
+
+	return ret
+}
+
 // NewSecretKey generates a new SecretKey with zero values.
 func NewSecretKey(params Parameters, id string) *SecretKey {
 	sk := new(SecretKey)
@@ -193,7 +232,6 @@ func NewPublicKey(params Parameters, id string) *PublicKey {
 	return pk
 }
 
-//
 func NewSwitchingKey(params Parameters) *SwitchingKey {
 	beta := params.Beta(params.QCount() - 1)
 	ringQP := params.RingQP()
@@ -218,13 +256,21 @@ func NewRelinearizationKey(params Parameters, id string) *RelinearizationKey {
 	return rlk
 }
 
-func NewRotationKey(params Parameters, rotidx int, id string) *RotationKey {
+func NewRotationKey(params Parameters, rotidx uint, id string) *RotationKey {
 	rk := new(RotationKey)
 	rk.ID = id
 	rk.RotIdx = rotidx
 	rk.Value = NewSwitchingKey(params)
 
 	return rk
+}
+
+func NewConjugationKey(params Parameters, id string) *ConjugationKey {
+	cjk := new(ConjugationKey)
+	cjk.ID = id
+	cjk.Value = NewSwitchingKey(params)
+
+	return cjk
 }
 
 // CopyNew creates a deep copy of the receiver secret key and returns it.

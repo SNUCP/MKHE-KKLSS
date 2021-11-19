@@ -187,7 +187,6 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 }
 
 // GenRotationKeys generates a RotationKeySet from a list of galois element corresponding to the desired rotations
-// See also GenRotationKeysForRotations.
 func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *RotationKey) {
 	skIn := sk
 	id := sk.ID
@@ -210,7 +209,7 @@ func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *Rotat
 	ring.PermuteNTTWithIndexLvl(params.PCount()-1, skIn.Value.P, index, skOut.Value.P)
 
 	// rk  = Ps' + e
-	rk = NewRotationKey(params, rotidx, id)
+	rk = NewRotationKey(params, uint(rotidx), id)
 	keygen.GenSwitchingKey(skOut, rk.Value)
 	a := params.CRS[0]
 
@@ -220,6 +219,36 @@ func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *Rotat
 	}
 
 	return rk
+}
+
+// GenConjugationKeys generates a ConjugationKeySet from a list of galois element corresponding to the desired conjugation
+func (keygen *KeyGenerator) GenConjugationKey(sk *SecretKey) (cjk *ConjugationKey) {
+	skIn := sk
+	id := sk.ID
+	skOut := NewSecretKey(keygen.params, id)
+
+	params := keygen.params
+	levelQ := params.QCount() - 1
+	levelP := params.PCount() - 1
+	beta := params.Beta(levelQ)
+	ringQP := params.RingQP()
+
+	galEl := keygen.params.GaloisElementForRowRotation()
+	index := ring.PermuteNTTIndex(galEl, uint64(params.N()))
+	ring.PermuteNTTWithIndexLvl(params.QCount()-1, skIn.Value.Q, index, skOut.Value.Q)
+	ring.PermuteNTTWithIndexLvl(params.PCount()-1, skIn.Value.P, index, skOut.Value.P)
+
+	// rk  = Ps' + e
+	cjk = NewConjugationKey(params, id)
+	keygen.GenSwitchingKey(skOut, cjk.Value)
+	a := params.CRS[0]
+
+	// rk = -sa + Ps' + e
+	for i := 0; i < beta; i++ {
+		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a.Value[i], sk.Value, cjk.Value.Value[i])
+	}
+
+	return cjk
 }
 
 //For an input secretkey s, gen gs + e in MForm
