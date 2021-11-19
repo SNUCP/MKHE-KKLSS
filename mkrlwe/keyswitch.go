@@ -128,6 +128,7 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 }
 
 // MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
+// Input ciphertext should be in NTT form
 func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
 
 	level := ctOut.Level()
@@ -207,7 +208,7 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 	//ctOut_0 <- ctOut_0 + Inter(Inter(op0_i, y), v_i)
 	//ctOut_i <- ctOut_i + Inter(Inter(op0_i, y), u)
 
-	u := params.CRS[1]
+	u := params.CRS[-1]
 
 	for id := range idset0.Value {
 		v := rlkSet.Value[id].Value[2]
@@ -222,6 +223,8 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 	}
 }
 
+// Rotate rotates ctIn with ctOut with RotationKeySet and returns the result in ctOut.
+// Input ciphertext should be in NTT form
 func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySet, ctOut *Ciphertext) {
 	level := ctOut.Level()
 	idset := ctIn.IDSet()
@@ -253,13 +256,15 @@ func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySe
 	}
 
 	// c_i <- IP(c_i, a)
-	a := params.CRS[0]
+	a := params.CRS[rotidx]
 	for id := range idset.Value {
 		ks.InternalProduct(level, ctOut.Value[id], a, ks.polyQPool[0])
 		ctOut.Value[id].Copy(ks.polyQPool[0])
 	}
 }
 
+// Conjugate conjugate ctIn with ctOut with ConjugationKeySet and returns the result in ctOut.
+// Input ciphertext should be in NTT form
 func (ks *KeySwitcher) Conjugate(ctIn *Ciphertext, ckSet *ConjugationKeySet, ctOut *Ciphertext) {
 	level := ctOut.Level()
 	idset := ctIn.IDSet()
@@ -269,7 +274,7 @@ func (ks *KeySwitcher) Conjugate(ctIn *Ciphertext, ckSet *ConjugationKeySet, ctO
 
 	// check ctIn level
 	if ctIn.Level() < level {
-		panic("Cannot Rotate: ctIn and ctOut have different levels")
+		panic("Cannot Conjugate: ctIn and ctOut have different levels")
 	}
 
 	// permute ctIn and put it to ctOut
@@ -286,7 +291,7 @@ func (ks *KeySwitcher) Conjugate(ctIn *Ciphertext, ckSet *ConjugationKeySet, ctO
 	}
 
 	// c_i <- IP(c_i, a)
-	a := params.CRS[0]
+	a := params.CRS[-2]
 	for id := range idset.Value {
 		ks.InternalProduct(level, ctOut.Value[id], a, ks.polyQPool[0])
 		ctOut.Value[id].Copy(ks.polyQPool[0])

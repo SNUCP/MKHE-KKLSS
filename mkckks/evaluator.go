@@ -448,7 +448,37 @@ func (eval *Evaluator) RotateNew(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.Rota
 // Rotate rotates the columns of ct0 by k positions to the left and returns the result in ctOut.
 // If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
 func (eval *Evaluator) rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.RotationKeySet, ctOut *Ciphertext) {
-	eval.ksw.Rotate(ct0.Ciphertext, rotidx, rkSet, ctOut.Ciphertext)
+
+	// normalize rotidx
+	for rotidx >= eval.params.N()/2 {
+		rotidx -= eval.params.N() / 2
+	}
+
+	for rotidx < 0 {
+		rotidx += eval.params.N() / 2
+	}
+
+	if rotidx == 0 {
+		ctOut.Ciphertext.Copy(ct0.Ciphertext)
+		return
+	}
+
+	_, in := eval.params.CRS[rotidx]
+
+	if in {
+		eval.ksw.Rotate(ct0.Ciphertext, rotidx, rkSet, ctOut.Ciphertext)
+		return
+	}
+
+	ctTmp := ct0.CopyNew()
+	for k := 1; rotidx > 0; k *= 2 {
+		if rotidx%2 != 0 {
+			eval.ksw.Rotate(ctTmp.Ciphertext, k, rkSet, ctOut.Ciphertext)
+			ctTmp.Ciphertext.Copy(ctOut.Ciphertext)
+		}
+		rotidx /= 2
+	}
+
 }
 
 // ConjugateNew conjugates ct0 (which is equivalent to a row rotation) and returns the result in a newly

@@ -7,7 +7,7 @@ import "math"
 
 type Parameters struct {
 	rlwe.Parameters
-	CRS   [2]*SwitchingKey
+	CRS   map[int]*SwitchingKey
 	gamma int
 }
 
@@ -32,23 +32,30 @@ func NewParameters(params rlwe.Parameters, gamma int) Parameters {
 	uniformSamplerQ := ring.NewUniformSampler(prng, params.RingQ())
 	uniformSamplerP := ring.NewUniformSampler(prng, params.RingP())
 
-	ret.CRS[0] = new(SwitchingKey)
-	ret.CRS[1] = new(SwitchingKey)
+	ret.CRS = make(map[int]*SwitchingKey)
 
-	ret.CRS[0].Value = make([]rlwe.PolyQP, beta)
-	ret.CRS[1].Value = make([]rlwe.PolyQP, beta)
-
-	for i := 0; i < beta; i++ {
-		ret.CRS[0].Value[i] = ringQP.NewPoly()
-		uniformSamplerQ.Read(ret.CRS[0].Value[i].Q)
-		uniformSamplerP.Read(ret.CRS[0].Value[i].P)
-		ringQP.MFormLvl(levelQ, levelP, ret.CRS[0].Value[i], ret.CRS[0].Value[i])
-
-		ret.CRS[1].Value[i] = ringQP.NewPoly()
-		uniformSamplerQ.Read(ret.CRS[1].Value[i].Q)
-		uniformSamplerP.Read(ret.CRS[1].Value[i].P)
-		ringQP.MFormLvl(levelQ, levelP, ret.CRS[1].Value[i], ret.CRS[1].Value[i])
+	idxs := []int{
+		0, -1, //CRS for relin key
+		-2, //CRS for conj key
 	}
+
+	// CRS for rot keys
+	for i := 0; i < params.LogN()-1; i++ {
+		idxs = append(idxs, 1<<i)
+	}
+
+	// generate CRS for each indexes
+	for _, idx := range idxs {
+		ret.CRS[idx] = new(SwitchingKey)
+		ret.CRS[idx].Value = make([]rlwe.PolyQP, beta)
+		for i := 0; i < beta; i++ {
+			ret.CRS[idx].Value[i] = ringQP.NewPoly()
+			uniformSamplerQ.Read(ret.CRS[idx].Value[i].Q)
+			uniformSamplerP.Read(ret.CRS[idx].Value[i].P)
+			ringQP.MFormLvl(levelQ, levelP, ret.CRS[idx].Value[i], ret.CRS[idx].Value[i])
+		}
+	}
+
 	return *ret
 }
 
@@ -58,7 +65,7 @@ func (params Parameters) Alpha() int {
 
 func (params Parameters) Beta(levelQ int) int {
 	alpha := params.Alpha()
-	beta := int(math.Ceil(float64(params.QCount()) / float64(alpha)))
+	beta := int(math.Ceil(float64(levelQ+1) / float64(alpha)))
 	return beta
 }
 

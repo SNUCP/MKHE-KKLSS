@@ -152,7 +152,12 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 	// gen sk, pk, rlk, rk
 
-	rots := []int{-2, 2}
+	rots := []int{}
+
+	for i := 0; i < testContext.params.LogN()-1; i++ {
+		rots = append(rots, 1<<i)
+	}
+
 	for id := range idset.Value {
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)
@@ -410,6 +415,7 @@ func testEvaluatorRot(testContext *testParams, userList []string, t *testing.T) 
 
 	ct := ctList[0]
 	msg := msgList[0]
+	rot := int(utils.RandUint64()%uint64(2*params.N())) - params.N()
 
 	for i := range userList {
 		ct = eval.AddNew(ct, ctList[i])
@@ -419,23 +425,17 @@ func testEvaluatorRot(testContext *testParams, userList []string, t *testing.T) 
 		}
 	}
 
-	t.Run(GetTestName(testContext.params, "MKRotateLeft: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
-		ctRes := eval.RotateNew(ct, 2, rtkSet)
+	t.Run(GetTestName(testContext.params, "MKRotate: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		ctRes := eval.RotateNew(ct, rot, rtkSet)
 		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
 
 		for i := range msgRes.Value {
-			delta := msgRes.Value[i] - msg.Value[(i+2)%len(msg.Value)]
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(real(delta))))
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(imag(delta))))
-		}
-	})
-
-	t.Run(GetTestName(testContext.params, "MKRotateRight: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
-		ctRes := eval.RotateNew(ct, -2, rtkSet)
-		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
-
-		for i := range msgRes.Value {
-			delta := msgRes.Value[(i+2)%len(msg.Value)] - msg.Value[i]
+			var delta complex128
+			if rot > 0 {
+				delta = msgRes.Value[i] - msg.Value[(i+rot)%len(msg.Value)]
+			} else {
+				delta = msg.Value[i] - msgRes.Value[(i-rot)%len(msg.Value)]
+			}
 			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(real(delta))))
 			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(imag(delta))))
 		}

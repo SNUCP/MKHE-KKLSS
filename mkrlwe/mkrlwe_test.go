@@ -305,7 +305,7 @@ func testRelinKeyGen(kgen *KeyGenerator, t *testing.T) {
 		beta := params.Beta(levelQ)
 
 		a := params.CRS[0]
-		u := params.CRS[1]
+		u := params.CRS[-1]
 
 		//generate sg, rg
 		sg := NewSwitchingKey(params)

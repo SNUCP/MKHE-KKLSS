@@ -154,7 +154,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 
 	//set CRS
 	a := keygen.params.CRS[0]
-	u := keygen.params.CRS[1]
+	u := keygen.params.CRS[-1]
 
 	tmp := keygen.poolQP
 
@@ -198,6 +198,12 @@ func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *Rotat
 	beta := params.Beta(levelQ)
 	ringQP := params.RingQP()
 
+	// check CRS for given rot idx exists
+	_, in := params.CRS[rotidx]
+	if !in {
+		panic("Cannot GenRotationKey: CRS for given rot idx is not generated")
+	}
+
 	// adjust rotidx
 	for rotidx < 0 {
 		rotidx += (params.N() / 2)
@@ -211,7 +217,7 @@ func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *Rotat
 	// rk  = Ps' + e
 	rk = NewRotationKey(params, uint(rotidx), id)
 	keygen.GenSwitchingKey(skOut, rk.Value)
-	a := params.CRS[0]
+	a := params.CRS[rotidx]
 
 	// rk = -sa + Ps' + e
 	for i := 0; i < beta; i++ {
@@ -241,7 +247,7 @@ func (keygen *KeyGenerator) GenConjugationKey(sk *SecretKey) (cjk *ConjugationKe
 	// rk  = Ps' + e
 	cjk = NewConjugationKey(params, id)
 	keygen.GenSwitchingKey(skOut, cjk.Value)
-	a := params.CRS[0]
+	a := params.CRS[-2]
 
 	// rk = -sa + Ps' + e
 	for i := 0; i < beta; i++ {

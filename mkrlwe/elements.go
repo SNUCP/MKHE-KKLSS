@@ -68,6 +68,13 @@ func (el *Ciphertext) CopyNew() *Ciphertext {
 	return ctxCopy
 }
 
+// Copy copy value from the input element.
+func (el *Ciphertext) Copy(ct *Ciphertext) {
+	for id := range ct.Value {
+		el.Value[id].Copy(ct.Value[id])
+	}
+}
+
 // PadCiphertext pads a ciphertext with an input idset
 func (el *Ciphertext) PadCiphertext(idset *IDSet) {
 
