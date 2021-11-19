@@ -33,14 +33,16 @@ func GetTestName(params Parameters, opname string) string {
 }
 
 type testParams struct {
-	params    Parameters
-	ringQ     *ring.Ring
-	ringP     *ring.Ring
-	prng      utils.PRNG
-	kgen      *mkrlwe.KeyGenerator
-	skSet     *mkrlwe.SecretKeySet
-	pkSet     *mkrlwe.PublicKeySet
-	rlkSet    *mkrlwe.RelinearizationKeySet
+	params Parameters
+	ringQ  *ring.Ring
+	ringP  *ring.Ring
+	prng   utils.PRNG
+	kgen   *mkrlwe.KeyGenerator
+	skSet  *mkrlwe.SecretKeySet
+	pkSet  *mkrlwe.PublicKeySet
+	rlkSet *mkrlwe.RelinearizationKeySet
+	rtkSet *mkrlwe.RotationKeySet
+
 	encryptor *Encryptor
 	decryptor *Decryptor
 	evaluator *Evaluator
@@ -124,11 +126,18 @@ func TestCKKS(t *testing.T) {
 		//testEvaluatorAdd(testContext, t)
 		//testEvaluatorSub(testContext, t)
 		//testEvaluatorRescale(testContext, t)
+
 		testEvaluatorMul(testContext, userList[:2], t)
 		testEvaluatorMul(testContext, userList[:4], t)
 		testEvaluatorMul(testContext, userList[:8], t)
 		testEvaluatorMul(testContext, userList[:16], t)
 		testEvaluatorMul(testContext, userList[:32], t)
+
+		testEvaluatorRot(testContext, userList[:2], t)
+		testEvaluatorRot(testContext, userList[:4], t)
+		testEvaluatorRot(testContext, userList[:8], t)
+		testEvaluatorRot(testContext, userList[:16], t)
+		testEvaluatorRot(testContext, userList[:32], t)
 	}
 }
 
@@ -143,16 +152,24 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 	testContext.skSet = mkrlwe.NewSecretKeySet()
 	testContext.pkSet = mkrlwe.NewPublicKeyKeySet()
 	testContext.rlkSet = mkrlwe.NewRelinearizationKeyKeySet()
+	testContext.rtkSet = mkrlwe.NewRotationKeysSet()
 
+	// gen sk, pk, rlk, rk
+
+	rots := []int{1, 2}
 	for id := range idset.Value {
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)
 		rlk := testContext.kgen.GenRelinearizationKey(sk, r)
 
+		for _, rot := range rots {
+			rk := testContext.kgen.GenRotationKey(rot, sk)
+			testContext.rtkSet.AddRotationKey(rk)
+		}
+
 		testContext.skSet.AddSecretKey(sk)
 		testContext.pkSet.AddPublicKey(pk)
 		testContext.rlkSet.AddRelinearizationKey(rlk)
-
 	}
 
 	testContext.ringQ = defaultParam.RingQ()
@@ -373,6 +390,47 @@ func testEvaluatorRescale(testContext *testParams, t *testing.T) {
 			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+8, math.Log2(math.Abs(real(delta))))
 		}
 
+	})
+
+}
+
+func testEvaluatorRot(testContext *testParams, userList []string, t *testing.T) {
+
+	params := testContext.params
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
+
+	rtkSet := testContext.rtkSet
+	eval := testContext.evaluator
+
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i],
+			complex(0.5/float64(numUsers), 1.0/float64(numUsers)),
+			complex(0.5/float64(numUsers), 1.0/float64(numUsers)))
+	}
+
+	ct := ctList[0]
+	msg := msgList[0]
+
+	for i := range userList {
+		ct = eval.AddNew(ct, ctList[i])
+
+		for j := range msg.Value {
+			msg.Value[j] += msgList[i].Value[j]
+		}
+	}
+
+	t.Run(GetTestName(testContext.params, "MKRotate: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		ctRes := eval.RotateNew(ct, 2, rtkSet)
+		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
+
+		for i := range msgRes.Value {
+			delta := msgRes.Value[i] - msg.Value[(i+2)%len(msg.Value)]
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(real(delta))),
+				fmt.Sprintf("idx: %v %v vs %v", i, msgRes.Value[i], msg.Value[(i+2)%len(msg.Value)]),
+			)
+		}
 	})
 
 }

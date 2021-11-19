@@ -204,10 +204,6 @@ func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *Rotat
 		rotidx += (params.N() / 2)
 	}
 
-	for rotidx < (params.N() / 2) {
-		rotidx -= (params.N() / 2)
-	}
-
 	galEl := keygen.params.GaloisElementForColumnRotationBy(rotidx)
 	index := ring.PermuteNTTIndex(galEl, uint64(params.N()))
 	ring.PermuteNTTWithIndexLvl(params.QCount()-1, skIn.Value.Q, index, skOut.Value.Q)
@@ -218,7 +214,7 @@ func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *Rotat
 	keygen.GenSwitchingKey(skOut, rk.Value)
 	a := params.CRS[0]
 
-	// rk = -as + Ps' + e
+	// rk = -sa + Ps' + e
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a.Value[i], sk.Value, rk.Value.Value[i])
 	}

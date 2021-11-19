@@ -130,12 +130,12 @@ func (rkSet *RotationKeySet) AddRotationKey(rk *RotationKey) {
 }
 
 // DelRotationKeys delete rotation keys of given id from RotationKeysSet
-func (rkSet *RotationKeySet) DelRotationKeys(id string, rotidx int) {
+func (rkSet *RotationKeySet) DelRotationKey(id string, rotidx int) {
 	delete(rkSet.Value[id], rotidx)
 }
 
 // GetRotationKeys returns a rotation keys of given id from RotationKeysSet
-func (rkSet *RotationKeySet) GetRotationKeys(id string, rotidx int) *RotationKey {
+func (rkSet *RotationKeySet) GetRotationKey(id string, rotidx int) *RotationKey {
 	_, in := rkSet.Value[id]
 	if !in {
 		panic("cannot GetRotationKeys: there is no rotation key with given id")
