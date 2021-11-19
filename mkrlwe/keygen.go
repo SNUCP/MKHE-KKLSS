@@ -186,6 +186,46 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *Reline
 	return
 }
 
+// GenRotationKeys generates a RotationKeySet from a list of galois element corresponding to the desired rotations
+// See also GenRotationKeysForRotations.
+func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *RotationKey) {
+	skIn := sk
+	id := sk.ID
+	skOut := NewSecretKey(keygen.params, id)
+
+	params := keygen.params
+	levelQ := params.QCount() - 1
+	levelP := params.PCount() - 1
+	beta := params.Beta(levelQ)
+	ringQP := params.RingQP()
+
+	// adjust rotidx
+	for rotidx < 0 {
+		rotidx += (params.N() / 2)
+	}
+
+	for rotidx < (params.N() / 2) {
+		rotidx -= (params.N() / 2)
+	}
+
+	galEl := keygen.params.GaloisElementForColumnRotationBy(rotidx)
+	index := ring.PermuteNTTIndex(galEl, uint64(params.N()))
+	ring.PermuteNTTWithIndexLvl(params.QCount()-1, skIn.Value.Q, index, skOut.Value.Q)
+	ring.PermuteNTTWithIndexLvl(params.PCount()-1, skIn.Value.P, index, skOut.Value.P)
+
+	// rk  = Ps' + e
+	rk = NewRotationKey(params, rotidx, id)
+	keygen.GenSwitchingKey(skOut, rk.Value)
+	a := params.CRS[0]
+
+	// rk = -as + Ps' + e
+	for i := 0; i < beta; i++ {
+		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a.Value[i], sk.Value, rk.Value.Value[i])
+	}
+
+	return rk
+}
+
 //For an input secretkey s, gen gs + e in MForm
 func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) {
 	params := keygen.params

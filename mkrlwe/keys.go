@@ -36,9 +36,21 @@ type RelinearizationKey struct {
 	ID    string
 }
 
+// RotationKey is a type for storing generic RLWE public rotation keys.
+type RotationKey struct {
+	Value  *SwitchingKey
+	ID     string
+	RotIdx int
+}
+
 // RelinearizationKeySet is a type for a set of multikey RLWE relinearization keys.
 type RelinearizationKeySet struct {
 	Value map[string]*RelinearizationKey
+}
+
+//RotationKeysSet is a type for a set of multikey RLWE rotation keys.
+type RotationKeySet struct {
+	Value map[string]map[int]*RotationKey
 }
 
 // NewSecretKeySet returns a new empty SecretKeySet
@@ -94,6 +106,46 @@ func (pkSet *PublicKeySet) GetPublicKey(id string) *PublicKey {
 	}
 
 	return ret
+}
+
+// NewRotationKeysSet returns a new empty RotationKeysSet
+func NewRotationKeysSet() *RotationKeySet {
+	rotSet := new(RotationKeySet)
+	rotSet.Value = make(map[string]map[int]*RotationKey)
+
+	return rotSet
+}
+
+// AddRotationKeys insert new rotation keys into RotationKeysSet with its id
+func (rkSet *RotationKeySet) AddRotationKey(rk *RotationKey) {
+
+	_, ok := rkSet.Value[rk.ID]
+
+	if !ok {
+		rkSet.Value[rk.ID] = make(map[int]*RotationKey)
+	}
+
+	rkSet.Value[rk.ID][rk.RotIdx] = rk
+
+}
+
+// DelRotationKeys delete rotation keys of given id from RotationKeysSet
+func (rkSet *RotationKeySet) DelRotationKeys(id string, rotidx int) {
+	delete(rkSet.Value[id], rotidx)
+}
+
+// GetRotationKeys returns a rotation keys of given id from RotationKeysSet
+func (rkSet *RotationKeySet) GetRotationKeys(id string, rotidx int) *RotationKey {
+	_, in := rkSet.Value[id]
+	if !in {
+		panic("cannot GetRotationKeys: there is no rotation key with given id")
+	}
+
+	_, in = rkSet.Value[id][rotidx]
+	if !in {
+		panic("cannot GetRotationKeys: there is no rotation key with given id")
+	}
+	return rkSet.Value[id][rotidx]
 }
 
 // NewRelinearizationKeySet returns a new empty RelinearizationKeySet
@@ -164,6 +216,15 @@ func NewRelinearizationKey(params Parameters, id string) *RelinearizationKey {
 	rlk.ID = id
 
 	return rlk
+}
+
+func NewRotationKey(params Parameters, rotidx int, id string) *RotationKey {
+	rk := new(RotationKey)
+	rk.ID = id
+	rk.RotIdx = rotidx
+	rk.Value = NewSwitchingKey(params)
+
+	return rk
 }
 
 // CopyNew creates a deep copy of the receiver secret key and returns it.
