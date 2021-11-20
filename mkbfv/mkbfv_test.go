@@ -60,6 +60,8 @@ type testParams struct {
 	skSet     *SecretKeySet
 	pkSet     *mkrlwe.PublicKeySet
 	rlkSet    *mkrlwe.RelinearizationKeySet
+	rtkSet    *mkrlwe.RotationKeySet
+	cjkSet    *mkrlwe.ConjugationKeySet
 	encryptor *Encryptor
 	decryptor *Decryptor
 	evaluator *Evaluator
@@ -144,15 +146,24 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 	testContext.skSet = NewSecretKeySet()
 	testContext.pkSet = mkrlwe.NewPublicKeyKeySet()
 	testContext.rlkSet = mkrlwe.NewRelinearizationKeyKeySet()
+	testContext.rtkSet = mkrlwe.NewRotationKeySet()
+	testContext.cjkSet = mkrlwe.NewConjugationKeySet()
 
 	for id := range idset.Value {
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)
 		rlk := testContext.kgen.GenRelinearizationKey(sk, r)
+		cjk := testContext.kgen.GenConjugationKey(sk)
+
+		for k := 1; k < testContext.params.N()/2; k *= 2 {
+			rk := testContext.kgen.GenRotationKey(k, sk)
+			testContext.rtkSet.AddRotationKey(rk)
+		}
 
 		testContext.skSet.AddSecretKey(sk)
 		testContext.pkSet.AddPublicKey(pk)
 		testContext.rlkSet.AddRelinearizationKey(rlk)
+		testContext.cjkSet.AddConjugationKey(cjk)
 	}
 
 	testContext.ringQ = defaultParam.RingQ()
@@ -173,7 +184,7 @@ func TestMKBFV(t *testing.T) {
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
-		maxUsers := 32
+		maxUsers := 4
 		userList := make([]string, maxUsers)
 		idset := mkrlwe.NewIDSet()
 
@@ -186,17 +197,13 @@ func TestMKBFV(t *testing.T) {
 
 		testEncAndDec(testContext, userList, t)
 
-		testEvaluatorAdd(testContext, userList[:2], t)
-		testEvaluatorAdd(testContext, userList[:4], t)
-
-		testEvaluatorSub(testContext, userList[:2], t)
-		testEvaluatorSub(testContext, userList[:4], t)
-
-		testEvaluatorMul(testContext, userList[:2], t)
-		testEvaluatorMul(testContext, userList[:4], t)
-		testEvaluatorMul(testContext, userList[:8], t)
-		testEvaluatorMul(testContext, userList[:16], t)
-		testEvaluatorMul(testContext, userList[:32], t)
+		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
+			testEvaluatorAdd(testContext, userList[:numUsers], t)
+			testEvaluatorSub(testContext, userList[:numUsers], t)
+			testEvaluatorMul(testContext, userList[:numUsers], t)
+			testEvaluatorRot(testContext, userList[:numUsers], t)
+			testEvaluatorConj(testContext, userList[:numUsers], t)
+		}
 	}
 }
 
@@ -350,6 +357,104 @@ func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) 
 			delta := msgRes.Value[i] - msg.Value[i]
 			require.Equal(t, int64(0), delta, fmt.Sprintf("%v: %v vs %v", i, msgRes.Value[i], msg.Value[i]))
 		}
+	})
+
+}
+
+func testEvaluatorRot(testContext *testParams, userList []string, t *testing.T) {
+
+	params := testContext.params
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
+
+	rtkSet := testContext.rtkSet
+	eval := testContext.evaluator
+	slots := eval.params.N() / 2
+
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], 0, 2)
+	}
+
+	ct := ctList[0]
+	msg := msgList[0]
+	rot := int(utils.RandUint64()%uint64(2*params.N())) - params.N()
+
+	for i := range userList {
+		ct = eval.AddNew(ct, ctList[i])
+
+		for j := range msg.Value {
+			msg.Value[j] += msgList[i].Value[j]
+		}
+	}
+
+	t.Run(GetTestName(testContext.params, "MKRotate: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		ctRes := eval.RotateNew(ct, rot, rtkSet)
+		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
+
+		for i := 0; i < slots; i++ {
+			var delta int64
+			if rot > 0 {
+				delta = msgRes.Value[i] - msg.Value[(i+rot)%slots]
+			} else {
+				delta = msg.Value[i] - msgRes.Value[(i-rot)%slots]
+			}
+			require.Equal(t, int64(0), delta)
+		}
+
+		for i := 0; i < slots; i++ {
+			var delta int64
+			if rot > 0 {
+				delta = msgRes.Value[i+slots] - msg.Value[(i+rot)%slots+slots]
+			} else {
+				delta = msg.Value[i+slots] - msgRes.Value[(i-rot)%slots+slots]
+			}
+			require.Equal(t, int64(0), delta)
+		}
+
+	})
+
+}
+
+func testEvaluatorConj(testContext *testParams, userList []string, t *testing.T) {
+
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
+
+	cjkSet := testContext.cjkSet
+	eval := testContext.evaluator
+	slots := eval.params.N() / 2
+
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], 0, 2)
+	}
+
+	ct := ctList[0]
+	msg := msgList[0]
+
+	for i := range userList {
+		ct = eval.AddNew(ct, ctList[i])
+
+		for j := range msg.Value {
+			msg.Value[j] += msgList[i].Value[j]
+		}
+	}
+
+	t.Run(GetTestName(testContext.params, "MKConjugate: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		ctRes := eval.ConjugateNew(ct, cjkSet)
+		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
+
+		for i := 0; i < slots; i++ {
+			delta := msgRes.Value[i] - msg.Value[(i+slots)]
+			require.Equal(t, int64(0), delta)
+		}
+
+		for i := 0; i < slots; i++ {
+			delta := msgRes.Value[i+slots] - msg.Value[i]
+			require.Equal(t, int64(0), delta)
+		}
+
 	})
 
 }

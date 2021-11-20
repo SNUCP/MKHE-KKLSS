@@ -120,7 +120,7 @@ func (pkSet *PublicKeySet) GetPublicKey(id string) *PublicKey {
 }
 
 // NewRotationKeysSet returns a new empty RotationKeysSet
-func NewRotationKeysSet() *RotationKeySet {
+func NewRotationKeySet() *RotationKeySet {
 	rotSet := new(RotationKeySet)
 	rotSet.Value = make(map[string]map[uint]*RotationKey)
 

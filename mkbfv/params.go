@@ -29,7 +29,6 @@ type Parameters struct {
 	paramsQMulP mkrlwe.Parameters
 	paramsRP    mkrlwe.Parameters
 	ringT       *ring.Ring
-	CRS         [2]*mkrlwe.SwitchingKey
 }
 
 // NewParameters instantiate a set of MKCKKS parameters from the generic CKKS parameters and the CKKS-specific ones.
@@ -79,19 +78,26 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 	params.paramsQMulP = mkrlwe.NewParameters(rlweParamsQMulP, 3)
 	params.paramsRP = mkrlwe.NewParameters(rlweParamsRP, 3)
 
-	params.CRS[0] = params.paramsRP.CRS[0]
-	params.CRS[1] = params.paramsRP.CRS[1]
-
 	conv := NewFastBasisExtender(
 		params.paramsQP.RingP(), params.paramsQP.RingQ(),
 		params.paramsQMulP.RingQ(),
 		params.paramsRP.RingQ(),
 	)
 
-	// apply GadgetTransform
-	conv.GadgetTransform(params.paramsQP.CRS[0], params.paramsQMulP.CRS[0], params.CRS[0])
-	conv.GadgetTransform(params.paramsQP.CRS[1], params.paramsQMulP.CRS[1], params.CRS[1])
+	idxs := []int{
+		0, -1, //CRS for relin key
+		-2, //CRS for conj key
+	}
 
+	// CRS for rot keys
+	for i := 0; i < params.paramsQP.LogN()-1; i++ {
+		idxs = append(idxs, 1<<i)
+	}
+
+	// apply GadgetTransform
+	for _, idx := range idxs {
+		conv.GadgetTransform(params.paramsQP.CRS[idx], params.paramsQMulP.CRS[idx], params.paramsRP.CRS[idx])
+	}
 	return params
 }
 

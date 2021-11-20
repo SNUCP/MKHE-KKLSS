@@ -100,3 +100,27 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *mkrlwe
 
 	return rlk
 }
+
+func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *mkrlwe.RotationKey) {
+	params := keygen.params
+
+	id := sk.ID
+
+	skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+	skQP.Value.Copy(sk.ValueQP)
+
+	rk = keygen.keygenQP.GenRotationKey(rotidx, skQP)
+	return rk
+}
+
+func (keygen *KeyGenerator) GenConjugationKey(sk *SecretKey) (cjk *mkrlwe.ConjugationKey) {
+	params := keygen.params
+
+	id := sk.ID
+
+	skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+	skQP.Value.Copy(sk.ValueQP)
+
+	cjk = keygen.keygenQP.GenConjugationKey(skQP)
+	return cjk
+}

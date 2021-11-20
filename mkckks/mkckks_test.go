@@ -147,7 +147,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 	testContext.skSet = mkrlwe.NewSecretKeySet()
 	testContext.pkSet = mkrlwe.NewPublicKeyKeySet()
 	testContext.rlkSet = mkrlwe.NewRelinearizationKeyKeySet()
-	testContext.rtkSet = mkrlwe.NewRotationKeysSet()
+	testContext.rtkSet = mkrlwe.NewRotationKeySet()
 	testContext.cjkSet = mkrlwe.NewConjugationKeySet()
 
 	// gen sk, pk, rlk, rk

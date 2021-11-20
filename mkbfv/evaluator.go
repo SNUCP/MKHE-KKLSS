@@ -120,3 +120,89 @@ func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 		eval.conv.Quantize(ctOutR.Value[id], ctOut.Value[id], eval.params.T())
 	}
 }
+
+// RotateNew rotates the columns of ct0 by k positions to the left, and returns the result in a newly created element.
+// If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
+func (eval *Evaluator) RotateNew(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.RotationKeySet) (ctOut *Ciphertext) {
+	ctOut = NewCiphertext(eval.params, ct0.IDSet())
+	eval.rotate(ct0, rotidx, rkSet, ctOut)
+	return
+}
+
+// Rotate rotates the columns of ct0 by k positions to the left and returns the result in ctOut.
+// If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
+func (eval *Evaluator) rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.RotationKeySet, ctOut *Ciphertext) {
+
+	// normalize rotidx
+	for rotidx >= eval.params.N()/2 {
+		rotidx -= eval.params.N() / 2
+	}
+
+	for rotidx < 0 {
+		rotidx += eval.params.N() / 2
+	}
+
+	if rotidx == 0 {
+		ctOut.Ciphertext.Copy(ct0.Ciphertext)
+		return
+	}
+
+	_, in := eval.params.paramsQP.CRS[rotidx]
+
+	ringQ := eval.params.RingQ()
+	ctTmp := ct0.CopyNew()
+
+	for id := range ctOut.Value {
+		ringQ.NTT(ctTmp.Value[id], ctTmp.Value[id])
+		ctTmp.Value[id].IsNTT = true
+		ctOut.Value[id].IsNTT = true
+	}
+
+	if in {
+		eval.kswQP.Rotate(ctTmp.Ciphertext, rotidx, rkSet, ctOut.Ciphertext)
+	} else {
+		for k := 1; rotidx > 0; k *= 2 {
+			if rotidx%2 != 0 {
+				eval.kswQP.Rotate(ctTmp.Ciphertext, k, rkSet, ctOut.Ciphertext)
+				ctTmp.Ciphertext.Copy(ctOut.Ciphertext)
+			}
+			rotidx /= 2
+		}
+	}
+
+	for id := range ctOut.Value {
+		ringQ.InvNTT(ctOut.Value[id], ctOut.Value[id])
+		ctOut.Value[id].IsNTT = false
+	}
+
+}
+
+// ConjugateNew conjugates ct0 (which is equivalent to a row rotation) and returns the result in a newly
+// created element. If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key
+// for the row rotation needs to be provided.
+func (eval *Evaluator) ConjugateNew(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySet) (ctOut *Ciphertext) {
+	ctOut = NewCiphertext(eval.params, ct0.IDSet())
+	eval.conjugate(ct0, ckSet, ctOut)
+	return
+}
+
+// Conjugate conjugates ct0 (which is equivalent to a row rotation) and returns the result in ctOut.
+// If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the row rotation needs to be provided.
+func (eval *Evaluator) conjugate(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySet, ctOut *Ciphertext) {
+
+	ringQ := eval.params.RingQ()
+	ctTmp := ct0.CopyNew()
+
+	for id := range ctOut.Value {
+		ringQ.NTT(ctTmp.Value[id], ctTmp.Value[id])
+		ctTmp.Value[id].IsNTT = true
+		ctOut.Value[id].IsNTT = true
+	}
+
+	eval.kswQP.Conjugate(ctTmp.Ciphertext, ckSet, ctOut.Ciphertext)
+
+	for id := range ctOut.Value {
+		ringQ.InvNTT(ctOut.Value[id], ctOut.Value[id])
+		ctOut.Value[id].IsNTT = false
+	}
+}
