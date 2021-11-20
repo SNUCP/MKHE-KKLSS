@@ -43,9 +43,53 @@ var PN15QP873 = ParametersLiteral{
 	},
 
 	P: []uint64{
-		// 55 x 4 + 51 x 2
-		0x80000000440001, 0x7fffffffba0001, 0x80000000500001,
-		0x7fffffffaa0001, 0x80000002c0001, 0x7ffffffd20001,
+		// 6 x 55
+		0x80000000080001, 0x80000000130001, 0x80000000190001,
+		0x800000001d0001, 0x80000000440001, 0x80000000490001,
+	},
+	T:     65537,
+	Sigma: rlwe.DefaultSigma,
+}
+
+var PN14QP435 = ParametersLiteral{
+	LogN: 14,
+
+	Q: []uint64{
+		// 6 x 45
+		0x200000b20001, 0x200000c80001, 0x1fffff360001,
+		0x200000e20001, 0x1fffff060001, 0x200000fe0001,
+	},
+
+	QMul: []uint64{
+		// 6 x 45
+		0x2000000a0001, 0x2000000e0001, 0x1fffffc20001,
+		0x200000440001, 0x200000500001, 0x200000620001,
+	},
+
+	P: []uint64{
+		// 55 x 3
+		0x80000000080001, 0x80000000130001, 0x80000000190001,
+	},
+	T:     65537,
+	Sigma: rlwe.DefaultSigma,
+}
+
+var PN13QP220 = ParametersLiteral{
+	LogN: 13,
+
+	Q: []uint64{
+		// 4 x 30
+		0x40020001, 0x40038001, 0x40080001, 0x40084001,
+	},
+
+	QMul: []uint64{
+		// 4 x 30
+		0x400a8001, 0x400d4001, 0x40134001, 0x4018c001,
+	},
+
+	P: []uint64{
+		// 33 x 3
+		0x200038001, 0x20004c001, 0x200080001,
 	},
 	T:     65537,
 	Sigma: rlwe.DefaultSigma,
@@ -180,7 +224,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 }
 
 func TestMKBFV(t *testing.T) {
-	defaultParams := []ParametersLiteral{PN15QP873}
+	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 

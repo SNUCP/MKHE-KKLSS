@@ -9,12 +9,12 @@ import (
 
 func BenchmarkMKCKKS(b *testing.B) {
 
-	defaultParams := []ParametersLiteral{PN15QP873}
+	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
 
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
-		maxUsers := 4
+		maxUsers := 64
 		userList := make([]string, maxUsers)
 		idset := mkrlwe.NewIDSet()
 
