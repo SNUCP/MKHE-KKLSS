@@ -44,7 +44,7 @@ func NewParameters(params rlwe.Parameters, gamma int) Parameters {
 		idxs = append(idxs, 1<<i)
 	}
 
-	// generate CRS for each indexes
+	// generate CRS for default indexes
 	for _, idx := range idxs {
 		ret.CRS[idx] = new(SwitchingKey)
 		ret.CRS[idx].Value = make([]rlwe.PolyQP, beta)
@@ -71,4 +71,8 @@ func (params Parameters) Beta(levelQ int) int {
 
 func (params Parameters) Gamma() int {
 	return params.gamma
+}
+
+func (params *Parameters) AddCRS(crs *SwitchingKey, idx int) {
+	params.CRS[idx] = crs
 }
