@@ -113,6 +113,18 @@ func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *mkrlw
 	return rk
 }
 
+func (keygen *KeyGenerator) GenDefaultRotationKeys(sk *SecretKey, rtkSet *mkrlwe.RotationKeySet) {
+
+	params := keygen.params
+
+	id := sk.ID
+
+	skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+	skQP.Value.Copy(sk.ValueQP)
+
+	keygen.keygenQP.GenDefaultRotationKeys(skQP, rtkSet)
+}
+
 func (keygen *KeyGenerator) GenConjugationKey(sk *SecretKey) (cjk *mkrlwe.ConjugationKey) {
 	params := keygen.params
 

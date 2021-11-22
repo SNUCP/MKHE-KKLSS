@@ -152,27 +152,19 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 	// gen sk, pk, rlk, rk
 
-	rots := []int{}
-
-	for i := 0; i < testContext.params.LogN()-1; i++ {
-		rots = append(rots, 1<<i)
-	}
-
 	for id := range idset.Value {
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)
 		rlk := testContext.kgen.GenRelinearizationKey(sk, r)
 		cjk := testContext.kgen.GenConjugationKey(sk)
 
-		for _, rot := range rots {
-			rk := testContext.kgen.GenRotationKey(rot, sk)
-			testContext.rtkSet.AddRotationKey(rk)
-		}
+		testContext.kgen.GenDefaultRotationKeys(sk, testContext.rtkSet)
 
 		testContext.skSet.AddSecretKey(sk)
 		testContext.pkSet.AddPublicKey(pk)
 		testContext.rlkSet.AddRelinearizationKey(rlk)
 		testContext.cjkSet.AddConjugationKey(cjk)
+
 	}
 
 	testContext.ringQ = defaultParam.RingQ()

@@ -227,6 +227,14 @@ func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *Rotat
 	return rk
 }
 
+// GenRotationKeys generates a RotationKeys of rotidx power of 2 and add it to rtkSet
+func (keygen *KeyGenerator) GenDefaultRotationKeys(sk *SecretKey, rtkSet *RotationKeySet) {
+	for rotidx := 1; rotidx < keygen.params.N()/2; rotidx *= 2 {
+		rtk := keygen.GenRotationKey(rotidx, sk)
+		rtkSet.AddRotationKey(rtk)
+	}
+}
+
 // GenConjugationKeys generates a ConjugationKeySet from a list of galois element corresponding to the desired conjugation
 func (keygen *KeyGenerator) GenConjugationKey(sk *SecretKey) (cjk *ConjugationKey) {
 	skIn := sk
