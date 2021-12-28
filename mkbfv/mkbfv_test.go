@@ -14,11 +14,10 @@ import "math/big"
 import "math/bits"
 
 func GetTestName(params Parameters, opname string) string {
-	return fmt.Sprintf("%slogN=%d/logQP=%d/logQMulP=%d/logRP=%d/",
+	return fmt.Sprintf("%slogN=%d/logQP=%d/logRP=%d/",
 		opname,
-		params.paramsQP.LogN(),
-		params.paramsQP.LogQP(),
-		params.paramsQMulP.LogQP(),
+		params.LogN(),
+		params.LogQP(),
 		params.paramsRP.LogQP(),
 	)
 }
@@ -197,9 +196,9 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)
 		rlk := testContext.kgen.GenRelinearizationKey(sk, r)
-		cjk := testContext.kgen.GenConjugationKey(sk)
+		cjk := testContext.kgen.GenConjugationKey(sk.SecretKey)
 
-		testContext.kgen.GenDefaultRotationKeys(sk, testContext.rtkSet)
+		testContext.kgen.GenDefaultRotationKeys(sk.SecretKey, testContext.rtkSet)
 
 		testContext.skSet.AddSecretKey(sk)
 		testContext.pkSet.AddPublicKey(pk)
@@ -221,7 +220,8 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 }
 
 func TestMKBFV(t *testing.T) {
-	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
+	defaultParams := []ParametersLiteral{PN15QP873}
+	//defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
@@ -241,7 +241,7 @@ func TestMKBFV(t *testing.T) {
 		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
 			testEvaluatorAdd(testContext, userList[:numUsers], t)
 			testEvaluatorSub(testContext, userList[:numUsers], t)
-			testEvaluatorMul(testContext, userList[:numUsers], t)
+			//testEvaluatorMul(testContext, userList[:numUsers], t)
 			testEvaluatorRot(testContext, userList[:numUsers], t)
 			testEvaluatorConj(testContext, userList[:numUsers], t)
 		}

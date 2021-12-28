@@ -36,7 +36,8 @@ func NewParameters(params rlwe.Parameters, gamma int) Parameters {
 
 	idxs := []int{
 		0, -1, //CRS for relin key
-		-2, //CRS for conj key
+		-2,     //CRS for conj key
+		-3, -4, //CRS for bfv relin key
 	}
 
 	// CRS for rot keys

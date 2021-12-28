@@ -12,10 +12,10 @@ type Decryptor struct {
 
 // NewDecryptor instantiates a Decryptor for the CKKS scheme.
 func NewDecryptor(params Parameters) *Decryptor {
-	bfvParams, _ := bfv.NewParameters(params.paramsQP.Parameters, params.T())
+	bfvParams, _ := bfv.NewParameters(params.Parameters.Parameters, params.T())
 
 	ret := new(Decryptor)
-	ret.Decryptor = mkrlwe.NewDecryptor(params.paramsQP)
+	ret.Decryptor = mkrlwe.NewDecryptor(params.Parameters)
 	ret.encoder = bfv.NewEncoder(bfvParams)
 	ret.params = params
 	ret.ptxtPool = bfv.NewPlaintext(bfvParams)
