@@ -284,74 +284,43 @@ func (keygen *KeyGenerator) GenSwitchingKey(skIn *SecretKey, swk *SwitchingKey) 
 		}
 	}
 
-	ringQP := params.RingQP()
-	ringP := ringQP.RingP
-	e := ringQP.NewPoly()
+	// Computes P * skIn
+	ringQ.MulScalarBigintLvl(levelQ, skIn.Value.Q, pBigInt, keygen.poolQ)
 
+	var index int
 	for i := 0; i < beta; i++ {
-		Q := ringQ.ModulusBigint
 
-		Qi := big.NewInt(1)
-		for j := 0; j < alpha; j++ {
-			Qi.Mul(Qi, big.NewInt(int64(ringQ.Modulus[i*alpha+j])))
-		}
+		// e
 
-		Gi := big.NewInt(0)
-		Gi.Div(Q, Qi)
-		Ti := big.NewInt(0)
-		Ti.ModInverse(Gi, Qi)
-		Gi.Mul(Gi, Ti)
-		Gi.Mul(Gi, ringP.ModulusBigint)
-
-		ringQP.InvMFormLvl(levelQ, levelP, skIn.Value, swk.Value[i])
-		ringQ.MulScalarBigint(swk.Value[i].Q, Gi, swk.Value[i].Q)
-		ringP.MulScalarBigint(swk.Value[i].P, Gi, swk.Value[i].P)
-
-		keygen.GenGaussianError(e)
-		ringQP.AddLvl(levelQ, levelP, swk.Value[i], e, swk.Value[i])
+		ringQP := params.RingQP()
+		keygen.gaussianSamplerQ.ReadLvl(levelQ, swk.Value[i].Q)
+		ringQP.ExtendBasisSmallNormAndCenter(swk.Value[i].Q, levelP, nil, swk.Value[i].P)
+		ringQP.NTTLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
-	}
+		// e + (skIn * P) * (q_star * q_tild) mod QP
+		//
+		// q_prod = prod(q[i*alpha+j])
+		// q_star = Q/qprod
+		// q_tild = q_star^-1 mod q_prod
+		//
+		// Therefore : (skIn * P) * (q_star * q_tild) = sk*P mod q[i*alpha+j], else 0
+		for j := 0; j < alpha; j++ {
 
-	/*
+			index = i*alpha + j
 
-		// Computes P * skIn
-		ringQ.MulScalarBigintLvl(levelQ, skIn.Value.Q, pBigInt, keygen.poolQ)
+			// It handles the case where nb pj does not divide nb qi
+			if index >= levelQ+1 {
+				break
+			}
 
-		var index int
-		for i := 0; i < beta; i++ {
+			qi := ringQ.Modulus[index]
+			p0tmp := keygen.poolQ.Coeffs[index]
+			p1tmp := swk.Value[i].Q.Coeffs[index]
 
-			// e
-
-			ringQP := params.RingQP()
-			keygen.gaussianSamplerQ.ReadLvl(levelQ, swk.Value[i].Q)
-			ringQP.ExtendBasisSmallNormAndCenter(swk.Value[i].Q, levelP, nil, swk.Value[i].P)
-			ringQP.NTTLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
-			ringQP.MFormLvl(levelQ, levelP, swk.Value[i], swk.Value[i])
-			// e + (skIn * P) * (q_star * q_tild) mod QP
-			//
-			// q_prod = prod(q[i*alpha+j])
-			// q_star = Q/qprod
-			// q_tild = q_star^-1 mod q_prod
-			//
-			// Therefore : (skIn * P) * (q_star * q_tild) = sk*P mod q[i*alpha+j], else 0
-			for j := 0; j < alpha; j++ {
-
-				index = i*alpha + j
-
-				// It handles the case where nb pj does not divide nb qi
-				if index >= levelQ+1 {
-					break
-				}
-
-				qi := ringQ.Modulus[index]
-				p0tmp := keygen.poolQ.Coeffs[index]
-				p1tmp := swk.Value[i].Q.Coeffs[index]
-
-				for w := 0; w < ringQ.N; w++ {
-					p1tmp[w] = ring.CRed(p1tmp[w]+p0tmp[w], qi)
-				}
+			for w := 0; w < ringQ.N; w++ {
+				p1tmp[w] = ring.CRed(p1tmp[w]+p0tmp[w], qi)
 			}
 		}
-	*/
+	}
 
 }

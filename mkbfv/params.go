@@ -83,11 +83,6 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 	}
 	params.paramsRP = mkrlwe.NewParameters(rlweParamsRP, 2)
 
-	params.CRS[0] = mkrlwe.NewSwitchingKey(params.Parameters)
-	params.CRS[-1] = mkrlwe.NewSwitchingKey(params.Parameters)
-	params.CRS[-3] = mkrlwe.NewSwitchingKey(params.Parameters)
-	params.CRS[-4] = mkrlwe.NewSwitchingKey(params.Parameters)
-
 	conv := NewFastBasisExtender(params.RingP(), params.RingQ(), ringQMul, ringR)
 	conv.GadgetTransform(params.CRS[0], params.CRS[-3], params.paramsRP.CRS[0])
 	conv.GadgetTransform(params.CRS[-1], params.CRS[-4], params.paramsRP.CRS[-1])
