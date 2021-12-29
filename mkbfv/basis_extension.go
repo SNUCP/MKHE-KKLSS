@@ -197,27 +197,26 @@ func (conv *FastBasisExtender) RescaleNTT(polyQ *ring.Poly, polyR *ring.Poly) {
 func (conv *FastBasisExtender) GadgetTransform(swk1, swk2, swkRP *mkrlwe.SwitchingKey) {
 	beta := len(swk1.Value)
 
-	for i := 0; i < beta; i++ {
-		conv.ringQ.InvMForm(swk1.Value[i].Q, swk1.Value[i].Q)
-		conv.ringQ.InvMForm(swk2.Value[i].Q, swk2.Value[i].Q)
-
-		conv.ringP.InvMForm(swk1.Value[i].P, swk1.Value[i].P)
-		conv.ringP.InvMForm(swk2.Value[i].P, swk2.Value[i].P)
-
-		conv.ringQ.InvNTT(swk1.Value[i].Q, swk1.Value[i].Q)
-		conv.ringQ.InvNTT(swk2.Value[i].Q, swk2.Value[i].Q)
+	if len(swkRP.Value) != 2*beta {
+		panic("Cannnot GadgetTransform!!")
 	}
 
 	for i := 0; i < beta; i++ {
-		conv.ModUpQtoRAndNTT(swk1.Value[i].Q, swkRP.Value[i].Q)
-		swkRP.Value[i].P.Copy(swk1.Value[i].P)
+		conv.ringQ.InvMForm(swk1.Value[i].Q, swk1.Value[i].Q)
+		conv.ringP.InvMForm(swk1.Value[i].P, swk1.Value[i].P)
+
+		conv.ringQ.InvMForm(swk2.Value[i].Q, swk2.Value[i].Q)
+		conv.ringP.InvMForm(swk2.Value[i].P, swk2.Value[i].P)
+	}
+
+	for i := 0; i < beta; i++ {
+		conv.modUpQPtoRP(swk1.Value[i], swkRP.Value[i])
 		conv.ringR.MulScalarBigint(swkRP.Value[i].Q, conv.QMulBigInt, swkRP.Value[i].Q)
 		conv.ringP.MulScalarBigint(swkRP.Value[i].P, conv.QMulBigInt, swkRP.Value[i].P)
 		conv.ringR.MForm(swkRP.Value[i].Q, swkRP.Value[i].Q)
 		conv.ringP.MForm(swkRP.Value[i].P, swkRP.Value[i].P)
 
-		conv.ModUpQtoRAndNTT(swk2.Value[i].Q, swkRP.Value[i+beta].Q)
-		swkRP.Value[i+beta].P.Copy(swk2.Value[i].P)
+		conv.modUpQPtoRP(swk2.Value[i], swkRP.Value[i+beta])
 		conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, conv.QMulBigInt, swkRP.Value[i+beta].Q)
 		conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, conv.QMulBigInt, swkRP.Value[i+beta].P)
 		conv.ringR.MForm(swkRP.Value[i+beta].Q, swkRP.Value[i+beta].Q)
@@ -225,13 +224,10 @@ func (conv *FastBasisExtender) GadgetTransform(swk1, swk2, swkRP *mkrlwe.Switchi
 	}
 
 	for i := 0; i < beta; i++ {
-		conv.ringQ.NTT(swk1.Value[i].Q, swk1.Value[i].Q)
-		conv.ringQ.NTT(swk2.Value[i].Q, swk2.Value[i].Q)
-
 		conv.ringP.MForm(swk1.Value[i].P, swk1.Value[i].P)
-		conv.ringP.MForm(swk2.Value[i].P, swk2.Value[i].P)
-
 		conv.ringQ.MForm(swk1.Value[i].Q, swk1.Value[i].Q)
+
+		conv.ringP.MForm(swk2.Value[i].P, swk2.Value[i].P)
 		conv.ringQ.MForm(swk2.Value[i].Q, swk2.Value[i].Q)
 	}
 
