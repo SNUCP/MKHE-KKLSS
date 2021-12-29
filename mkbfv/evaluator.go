@@ -18,7 +18,7 @@ func NewEvaluator(params Parameters) *Evaluator {
 	eval := new(Evaluator)
 	eval.params = params
 	eval.kswRP = mkrlwe.NewKeySwitcher(params.paramsRP)
-	eval.kswQP = mkrlwe.NewKeySwitcher(params.Parameters)
+	eval.kswQP = mkrlwe.NewKeySwitcher(params.paramsQP)
 	eval.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQMul(), params.RingR())
 
 	return eval
@@ -147,7 +147,7 @@ func (eval *Evaluator) rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.Rotatio
 		return
 	}
 
-	_, in := eval.params.CRS[rotidx]
+	_, in := eval.params.paramsQP.CRS[rotidx]
 
 	ringQ := eval.params.RingQ()
 	ctTmp := ct0.CopyNew()

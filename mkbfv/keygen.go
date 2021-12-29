@@ -1,20 +1,33 @@
 package mkbfv
 
+import "github.com/ldsec/lattigo/v2/ring"
+
 import "mk-lattigo/mkrlwe"
 
 type KeyGenerator struct {
-	*mkrlwe.KeyGenerator
-	keygenRP *mkrlwe.KeyGenerator
-	params   Parameters
-	conv     *FastBasisExtender
+	params      Parameters
+	keygenQP    *mkrlwe.KeyGenerator
+	keygenQMulP *mkrlwe.KeyGenerator
+	keygenRP    *mkrlwe.KeyGenerator
+	baseconv    *FastBasisExtender
+
+	polypoolQ    *ring.Poly
+	polypoolQMul *ring.Poly
 }
 
-func NewKeyGenerator(params Parameters) *KeyGenerator {
-	keygen := new(KeyGenerator)
-	keygen.KeyGenerator = mkrlwe.NewKeyGenerator(params.Parameters)
-	keygen.keygenRP = mkrlwe.NewKeyGenerator(params.paramsRP)
+func NewKeyGenerator(params Parameters) (keygen *KeyGenerator) {
+	keygen = new(KeyGenerator)
 	keygen.params = params
-	keygen.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQMul(), params.RingR())
+	keygen.keygenQP = mkrlwe.NewKeyGenerator(params.paramsQP)
+	keygen.keygenQMulP = mkrlwe.NewKeyGenerator(params.paramsQMulP)
+	keygen.keygenRP = mkrlwe.NewKeyGenerator(params.paramsRP)
+	keygen.baseconv = NewFastBasisExtender(
+		params.RingP(), params.RingQ(),
+		params.RingQMul(), params.RingR(),
+	)
+
+	keygen.polypoolQ = params.RingQ().NewPoly()
+	keygen.polypoolQMul = params.RingQMul().NewPoly()
 
 	return keygen
 }
@@ -25,150 +38,101 @@ func (keygen *KeyGenerator) GenSecretKey(id string) (sk *SecretKey) {
 	params := keygen.params
 
 	sk = new(SecretKey)
-	sk.SecretKeyRP = keygen.keygenRP.GenSecretKey(id)
-	sk.SecretKey = mkrlwe.NewSecretKey(params.Parameters, id)
+	sk.SecretKey = mkrlwe.NewSecretKey(params.paramsQP, id)
+	sk.ValueQP = sk.SecretKey.Value
+	sk.ValueQMulP = params.RingQMulP().NewPoly()
+	sk.ValueRP = keygen.keygenRP.GenSecretKey(id).Value
 	sk.ID = id
 
 	levelQ := keygen.params.QCount() - 1
+	levelQMul := levelQ
 
-	sk.SecretKey.Value.P.Copy(sk.SecretKeyRP.Value.P)
+	sk.ValueQP.P.Copy(sk.ValueRP.P)
 	for i := 0; i < levelQ+1; i++ {
-		copy(sk.SecretKey.Value.Q.Coeffs[i], sk.SecretKeyRP.Value.Q.Coeffs[i])
+		copy(sk.ValueQP.Q.Coeffs[i], sk.ValueRP.Q.Coeffs[i])
+	}
+
+	sk.ValueQMulP.P.Copy(sk.ValueRP.P)
+	for i := 0; i < levelQMul+1; i++ {
+		copy(sk.ValueQMulP.Q.Coeffs[i], sk.ValueRP.Q.Coeffs[i+levelQ+1])
 	}
 
 	return sk
 }
 
+func (keygen *KeyGenerator) GenPublicKey(sk *SecretKey) *mkrlwe.PublicKey {
+	return keygen.keygenQP.GenPublicKey(sk.SecretKey)
+}
+
 // GenKeyPair generates a new SecretKey with distribution [1/3, 1/3, 1/3] and a corresponding public key.
 func (keygen *KeyGenerator) GenKeyPair(id string) (sk *SecretKey, pk *mkrlwe.PublicKey) {
 	sk = keygen.GenSecretKey(id)
-	return sk, keygen.GenPublicKey(sk.SecretKey)
+	return sk, keygen.GenPublicKey(sk)
 }
 
-// GenRelinKey generates a new EvaluationKey that will be used to relinearize Ciphertexts during multiplication.
-// RelinearizationKeys are triplet of polyvector in  MontgomeryForm
 func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *mkrlwe.RelinearizationKey) {
 
 	params := keygen.params
-	paramsRP := params.paramsRP
-	conv := keygen.conv
-	swkRP := mkrlwe.NewSwitchingKey(paramsRP)
+
 	id := sk.ID
 
-	keygen.keygenRP.GenSwitchingKey(sk.SecretKeyRP, swkRP)
+	skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+	rQP := mkrlwe.NewSecretKey(params.paramsQP, id)
 
-	levelQ := params.QCount() - 1
-	levelP := params.PCount() - 1
-	beta := params.Beta(levelQ)
+	skQMulP := mkrlwe.NewSecretKey(params.paramsQMulP, id)
+	rQMulP := mkrlwe.NewSecretKey(params.paramsQMulP, id)
 
-	ringQ := params.RingQ()
-	ringP := params.RingP()
-	ringQP := params.RingQP()
+	skQP.Value.Copy(sk.ValueQP)
+	rQP.Value.Copy(r.ValueQP)
 
-	//rlk = (b, d, v)
-	rlk = mkrlwe.NewRelinearizationKey(paramsRP, id)
+	skQMulP.Value.Copy(sk.ValueQMulP)
+	rQMulP.Value.Copy(r.ValueQMulP)
 
-	//set CRS
-	a1 := keygen.params.CRS[0]
-	a2 := keygen.params.CRS[-3]
-	u1 := keygen.params.CRS[-1]
-	u2 := keygen.params.CRS[-4]
+	// gen rlk in mod QP and QMulP
+	rlkQP := keygen.keygenQP.GenRelinearizationKey(skQP, rQP)
+	rlkQMulP := keygen.keygenQMulP.GenRelinearizationKey(skQMulP, rQMulP)
 
-	//generate vector b = QMul * (-sa + e) in MForm
-	b1 := mkrlwe.NewSwitchingKey(params.Parameters)
-	b2 := mkrlwe.NewSwitchingKey(params.Parameters)
-	b := rlk.Value[0]
-	tmp := ringQP.NewPoly()
+	// apply GadgetTransform
+	rlk = mkrlwe.NewRelinearizationKey(params.paramsRP, id)
+	keygen.baseconv.GadgetTransform(rlkQP.Value[0], rlkQMulP.Value[0], rlk.Value[0])
+	keygen.baseconv.GadgetTransform(rlkQP.Value[1], rlkQMulP.Value[1], rlk.Value[1])
+	keygen.baseconv.GadgetTransform(rlkQP.Value[2], rlkQMulP.Value[2], rlk.Value[2])
 
-	// compute -sa + e
-	for i := 0; i < beta; i++ {
-		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a1.Value[i], sk.Value, b1.Value[i])
-		ringQP.InvMFormLvl(levelQ, levelP, b1.Value[i], b1.Value[i])
-		keygen.GenGaussianError(tmp)
-		ringQP.SubLvl(levelQ, levelP, tmp, b1.Value[i], b1.Value[i])
-		ringQP.MFormLvl(levelQ, levelP, b1.Value[i], b1.Value[i])
-
-		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a2.Value[i], sk.Value, b2.Value[i])
-		ringQP.InvMFormLvl(levelQ, levelP, b2.Value[i], b2.Value[i])
-		keygen.GenGaussianError(tmp)
-		ringQP.SubLvl(levelQ, levelP, tmp, b2.Value[i], b2.Value[i])
-		ringQP.MFormLvl(levelQ, levelP, b2.Value[i], b2.Value[i])
-	}
-	conv.GadgetTransform(b1, b2, b)
-
-	//generate vector d = QMul * (-ra + sg + e) in MForm
-	d := rlk.Value[1]
-	d1 := mkrlwe.NewSwitchingKey(params.Parameters)
-	d2 := mkrlwe.NewSwitchingKey(params.Parameters)
-	keygen.genBFVSwitchingKey(sk, d1, d2)
-
-	for i := 0; i < beta; i++ {
-		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a1.Value[i], r.Value, d1.Value[i])
-		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, a2.Value[i], r.Value, d2.Value[i])
-	}
-	conv.GadgetTransform(d1, d2, d)
-
-	//generate vector v = -su - rg + e in MForm
-	v := rlk.Value[2]
-	v1 := mkrlwe.NewSwitchingKey(params.Parameters)
-	v2 := mkrlwe.NewSwitchingKey(params.Parameters)
-	keygen.genBFVSwitchingKey(r, v1, v2)
-
-	for i := 0; i < beta; i++ {
-		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u1.Value[i], sk.Value, v1.Value[i])
-		ringQ.NegLvl(levelQ, v1.Value[i].Q, v1.Value[i].Q)
-		ringP.NegLvl(levelP, v1.Value[i].P, v1.Value[i].P)
-
-		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u2.Value[i], sk.Value, v2.Value[i])
-		ringQ.NegLvl(levelQ, v2.Value[i].Q, v2.Value[i].Q)
-		ringP.NegLvl(levelP, v2.Value[i].P, v2.Value[i].P)
-	}
-	conv.GadgetTransform(v1, v2, v)
-
-	return
+	return rlk
 }
 
-func (keygen *KeyGenerator) genBFVSwitchingKey(sk *SecretKey, swk1, swk2 *mkrlwe.SwitchingKey) {
+func (keygen *KeyGenerator) GenRotationKey(rotidx int, sk *SecretKey) (rk *mkrlwe.RotationKey) {
 	params := keygen.params
-	paramsRP := params.paramsRP
-	conv := keygen.conv
-	swkRP := mkrlwe.NewSwitchingKey(paramsRP)
 
-	keygen.keygenRP.GenSwitchingKey(sk.SecretKeyRP, swkRP)
+	id := sk.ID
 
-	levelQ := params.QCount() - 1
-	levelP := params.PCount() - 1
-	levelR := paramsRP.QCount() - 1
-	beta := params.Beta(levelQ)
+	skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+	skQP.Value.Copy(sk.ValueQP)
 
-	ringQP := params.RingQP()
-	ringRP := params.RingRP()
+	rk = keygen.keygenQP.GenRotationKey(rotidx, skQP)
+	return rk
+}
 
-	for i := 0; i < 2*beta; i++ {
-		ringRP.InvMFormLvl(levelR, levelP, swkRP.Value[i], swkRP.Value[i])
-		ringRP.InvNTTLvl(levelR, levelP, swkRP.Value[i], swkRP.Value[i])
-	}
+func (keygen *KeyGenerator) GenDefaultRotationKeys(sk *SecretKey, rtkSet *mkrlwe.RotationKeySet) {
 
-	// ModDown by QMul
-	for i := 0; i < beta; i++ {
-		conv.ModDownRPtoQP(swkRP.Value[i], swk1.Value[i])
-		conv.ModDownRPtoQP(swkRP.Value[i+beta], swk2.Value[i])
-	}
+	params := keygen.params
 
-	// add error , apply NTT and MForm
-	e := ringQP.NewPoly()
-	for i := 0; i < beta; i++ {
-		keygen.GenGaussianError(e)
-		ringQP.InvNTTLvl(levelQ, levelP, e, e)
-		ringQP.AddLvl(levelQ, levelP, swk1.Value[i], e, swk1.Value[i])
-		ringQP.NTTLvl(levelQ, levelP, swk1.Value[i], swk1.Value[i])
-		ringQP.MFormLvl(levelQ, levelP, swk1.Value[i], swk1.Value[i])
+	id := sk.ID
 
-		keygen.GenGaussianError(e)
-		ringQP.InvNTTLvl(levelQ, levelP, e, e)
-		ringQP.AddLvl(levelQ, levelP, swk2.Value[i], e, swk2.Value[i])
-		ringQP.NTTLvl(levelQ, levelP, swk2.Value[i], swk2.Value[i])
-		ringQP.MFormLvl(levelQ, levelP, swk2.Value[i], swk2.Value[i])
-	}
+	skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+	skQP.Value.Copy(sk.ValueQP)
 
+	keygen.keygenQP.GenDefaultRotationKeys(skQP, rtkSet)
+}
+
+func (keygen *KeyGenerator) GenConjugationKey(sk *SecretKey) (cjk *mkrlwe.ConjugationKey) {
+	params := keygen.params
+
+	id := sk.ID
+
+	skQP := mkrlwe.NewSecretKey(params.paramsQP, id)
+	skQP.Value.Copy(sk.ValueQP)
+
+	cjk = keygen.keygenQP.GenConjugationKey(skQP)
+	return cjk
 }

@@ -9,7 +9,7 @@ type Ciphertext struct {
 // NewCiphertext creates a new ciphertext parameterized by degree, level and scale.
 // ciphertext is not in NTT Form
 func NewCiphertext(params Parameters, idset *mkrlwe.IDSet) (ciphertext *Ciphertext) {
-	return &Ciphertext{mkrlwe.NewCiphertext(params.Parameters, idset, params.Parameters.MaxLevel())}
+	return &Ciphertext{mkrlwe.NewCiphertext(params.paramsQP, idset, params.paramsQP.MaxLevel())}
 }
 
 // CopyNew creates a deep copy of the receiver ciphertext and returns it.

@@ -25,11 +25,10 @@ type ParametersLiteral struct {
 // immutable. See ParametersLiteral for user-specified parameters.
 // R = Q*QMul
 type Parameters struct {
-	mkrlwe.Parameters
-	paramsRP mkrlwe.Parameters
-	ringR    *ring.Ring
-	ringQMul *ring.Ring
-	ringT    *ring.Ring
+	paramsQP    mkrlwe.Parameters
+	paramsQMulP mkrlwe.Parameters
+	paramsRP    mkrlwe.Parameters
+	ringT       *ring.Ring
 }
 
 // NewParameters instantiate a set of MKCKKS parameters from the generic CKKS parameters and the CKKS-specific ones.
@@ -49,21 +48,8 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 	if err != nil {
 		panic("cannot NewParametersFromLiteral: ring T cannot be generated")
 	}
+
 	params.ringT = ringT
-
-	ringR, err := ring.NewRing(N, R)
-	if err != nil {
-
-		panic("cannot NewParametersFromLiteral: ring R cannot be generated")
-	}
-	params.ringR = ringR
-
-	ringQMul, err := ring.NewRing(N, pl.QMul)
-	if err != nil {
-
-		panic("cannot NewParametersFromLiteral: ring QMul cannot be generated")
-	}
-	params.ringQMul = ringQMul
 
 	rlweParamsQP, err := rlwe.NewParametersFromLiteral(
 		rlwe.ParametersLiteral{LogN: pl.LogN, Q: pl.Q, P: pl.P, Sigma: pl.Sigma},
@@ -71,7 +57,13 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 	if err != nil {
 		panic("cannot NewParametersFromLiteral: ring QP cannot be generated")
 	}
-	params.Parameters = mkrlwe.NewParameters(rlweParamsQP, 2)
+
+	rlweParamsQMulP, err := rlwe.NewParametersFromLiteral(
+		rlwe.ParametersLiteral{LogN: pl.LogN, Q: pl.QMul, P: pl.P, Sigma: pl.Sigma},
+	)
+	if err != nil {
+		panic("cannot NewParametersFromLiteral: ring QMulP cannot be generated")
+	}
 
 	rlweParamsRP, err := rlwe.NewParametersFromLiteral(
 		rlwe.ParametersLiteral{LogN: pl.LogN, Q: R, P: pl.P, Sigma: pl.Sigma},
@@ -81,25 +73,56 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 		panic("cannot NewParametersFromLiteral: ring RP cannot be generated")
 
 	}
-	params.paramsRP = mkrlwe.NewParameters(rlweParamsRP, 2)
 
-	conv := NewFastBasisExtender(params.RingP(), params.RingQ(), ringQMul, ringR)
-	conv.GadgetTransform(params.CRS[0], params.CRS[-3], params.paramsRP.CRS[0])
-	conv.GadgetTransform(params.CRS[-1], params.CRS[-4], params.paramsRP.CRS[-1])
+	params.paramsQP = mkrlwe.NewParameters(rlweParamsQP, 3)
+	params.paramsQMulP = mkrlwe.NewParameters(rlweParamsQMulP, 3)
+	params.paramsRP = mkrlwe.NewParameters(rlweParamsRP, 3)
 
-	return
+	conv := NewFastBasisExtender(
+		params.paramsQP.RingP(), params.paramsQP.RingQ(),
+		params.paramsQMulP.RingQ(),
+		params.paramsRP.RingQ(),
+	)
+
+	idxs := []int{
+		0, -1, //CRS for relin key
+		-2, //CRS for conj key
+	}
+
+	// CRS for rot keys
+	for i := 0; i < params.paramsQP.LogN()-1; i++ {
+		idxs = append(idxs, 1<<i)
+	}
+
+	// apply GadgetTransform
+	for _, idx := range idxs {
+		conv.GadgetTransform(params.paramsQP.CRS[idx], params.paramsQMulP.CRS[idx], params.paramsRP.CRS[idx])
+	}
+	return params
 }
 
 func (p Parameters) RingQMul() *ring.Ring {
-	return p.ringQMul
+	return p.paramsQMulP.RingQ()
+}
+
+func (p Parameters) RingQ() *ring.Ring {
+	return p.paramsQP.RingQ()
+}
+
+func (p Parameters) RingP() *ring.Ring {
+	return p.paramsQP.RingP()
+}
+
+func (p Parameters) RingQP() *rlwe.RingQP {
+	return p.paramsQP.RingQP()
 }
 
 func (p Parameters) RingQMulP() *rlwe.RingQP {
-	return &rlwe.RingQP{p.RingQMul(), p.RingP()}
+	return p.paramsQMulP.RingQP()
 }
 
 func (p Parameters) RingR() *ring.Ring {
-	return p.ringR
+	return p.paramsRP.RingQ()
 }
 
 func (p Parameters) RingRP() *rlwe.RingQP {
@@ -114,4 +137,24 @@ func (p Parameters) T() uint64 {
 // RingT returns a pointer to the plaintext ring
 func (p Parameters) RingT() *ring.Ring {
 	return p.ringT
+}
+
+func (p Parameters) QCount() int {
+	return p.paramsQP.QCount()
+}
+
+func (p Parameters) PCount() int {
+	return p.paramsQP.PCount()
+}
+
+func (p Parameters) RCount() int {
+	return p.paramsRP.QCount()
+}
+
+func (p Parameters) QMulCount() int {
+	return p.paramsQMulP.QCount()
+}
+
+func (p Parameters) N() int {
+	return p.paramsQP.N()
 }
