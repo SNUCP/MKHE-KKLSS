@@ -74,9 +74,9 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 
 	}
 
-	params.paramsQP = mkrlwe.NewParameters(rlweParamsQP, 3)
-	params.paramsQMulP = mkrlwe.NewParameters(rlweParamsQMulP, 3)
-	params.paramsRP = mkrlwe.NewParameters(rlweParamsRP, 3)
+	params.paramsQP = mkrlwe.NewParameters(rlweParamsQP, 2)
+	params.paramsQMulP = mkrlwe.NewParameters(rlweParamsQMulP, 2)
+	params.paramsRP = mkrlwe.NewParameters(rlweParamsRP, 2)
 
 	conv := NewFastBasisExtender(
 		params.paramsQP.RingP(), params.paramsQP.RingQ(),
