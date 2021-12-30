@@ -14,11 +14,10 @@ import "math/big"
 import "math/bits"
 
 func GetTestName(params Parameters, opname string) string {
-	return fmt.Sprintf("%slogN=%d/logQP=%d/logQMulP=%d/logRP=%d/",
+	return fmt.Sprintf("%slogN=%d/logQP=%d/logRP=%d/",
 		opname,
-		params.paramsQP.LogN(),
-		params.paramsQP.LogQP(),
-		params.paramsQMulP.LogQP(),
+		params.LogN(),
+		params.LogQP(),
 		params.paramsRP.LogQP(),
 	)
 }
@@ -119,7 +118,7 @@ type testParams struct {
 	ringP     *ring.Ring
 	prng      utils.PRNG
 	kgen      *KeyGenerator
-	skSet     *SecretKeySet
+	skSet     *mkrlwe.SecretKeySet
 	pkSet     *mkrlwe.PublicKeySet
 	rlkSet    *mkrlwe.RelinearizationKeySet
 	rtkSet    *mkrlwe.RotationKeySet
@@ -205,7 +204,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 	testContext.kgen = NewKeyGenerator(testContext.params)
 	testContext.evaluator = NewEvaluator(testContext.params)
 
-	testContext.skSet = NewSecretKeySet()
+	testContext.skSet = mkrlwe.NewSecretKeySet()
 	testContext.pkSet = mkrlwe.NewPublicKeyKeySet()
 	testContext.rlkSet = mkrlwe.NewRelinearizationKeyKeySet()
 	testContext.rtkSet = mkrlwe.NewRotationKeySet()

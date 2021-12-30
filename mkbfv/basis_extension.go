@@ -210,43 +210,15 @@ func (conv *FastBasisExtender) GadgetTransform(swkQP1, swkQP2, swkRP *mkrlwe.Swi
 
 		conv.modUpQPtoRP(swkQP1.Value[i], swkRP.Value[i])
 
-		/*
-			conv.ringR.MulScalarBigint(swkRP.Value[i].Q, InvQMulModQi, swkRP.Value[i].Q)
-			conv.ringP.MulScalarBigint(swkRP.Value[i].P, InvQMulModQi, swkRP.Value[i].P)
-		*/
 		conv.ringR.MulScalarBigint(swkRP.Value[i].Q, QMul, swkRP.Value[i].Q)
 		conv.ringP.MulScalarBigint(swkRP.Value[i].P, QMul, swkRP.Value[i].P)
 
 		conv.modUpQPtoRP(swkQP2.Value[i], swkRP.Value[i+beta])
 
-		/*
-			conv.ringR.MulScalarBigint(swkRP.Value[i].Q, InvQMulModQi, swkRP.Value[i].Q)
-			conv.ringP.MulScalarBigint(swkRP.Value[i].P, InvQMulModQi, swkRP.Value[i].P)
-		*/
 		conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, QMul, swkRP.Value[i+beta].Q)
 		conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, QMul, swkRP.Value[i+beta].P)
 
 	}
-
-	/*
-		//transform QMul part
-		for i := 0; i < beta; i++ {
-			QMuli := big.NewInt(1)
-			for j := 0; j < alpha; j++ {
-				QMuli.Mul(QMuli, big.NewInt(int64(conv.ringQMul.Modulus[i*alpha+j])))
-			}
-
-			InvQModQMuli := big.NewInt(1)
-			InvQModQMuli.Mod(InvQ, QMuli)
-
-			conv.modUpQMulPtoRP(swkQMulP.Value[i], swkRP.Value[i+beta])
-
-				conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, InvQModQMuli, swkRP.Value[i+beta].Q)
-				conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, InvQModQMuli, swkRP.Value[i+beta].P)
-			conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, Q, swkRP.Value[i+beta].Q)
-			conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, Q, swkRP.Value[i+beta].P)
-		}
-	*/
 
 	// apply MForm
 	for i := 0; i < beta; i++ {

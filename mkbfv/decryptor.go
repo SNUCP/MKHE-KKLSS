@@ -12,10 +12,10 @@ type Decryptor struct {
 
 // NewDecryptor instantiates a Decryptor for the CKKS scheme.
 func NewDecryptor(params Parameters) *Decryptor {
-	bfvParams, _ := bfv.NewParameters(params.paramsQP.Parameters, params.T())
+	bfvParams, _ := bfv.NewParameters(params.Parameters.Parameters, params.T())
 
 	ret := new(Decryptor)
-	ret.Decryptor = mkrlwe.NewDecryptor(params.paramsQP)
+	ret.Decryptor = mkrlwe.NewDecryptor(params.Parameters)
 	ret.encoder = bfv.NewEncoder(bfvParams)
 	ret.params = params
 	ret.ptxtPool = bfv.NewPlaintext(bfvParams)
@@ -24,14 +24,14 @@ func NewDecryptor(params Parameters) *Decryptor {
 }
 
 // PartialDecrypt partially decrypts the ct with single secretkey sk and update result inplace
-func (dec *Decryptor) PartialDecrypt(ct *Ciphertext, sk *SecretKey) {
-	dec.Decryptor.PartialDecrypt(ct.Ciphertext, sk.SecretKey)
+func (dec *Decryptor) PartialDecrypt(ct *Ciphertext, sk *mkrlwe.SecretKey) {
+	dec.Decryptor.PartialDecrypt(ct.Ciphertext, sk)
 }
 
 // Decrypt decrypts the ciphertext with given secretkey set and write the result in ptOut.
 // The level of the output plaintext is min(ciphertext.Level(), plaintext.Level())
 // Output domain will match plaintext.Value.IsNTT value.
-func (dec *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *SecretKeySet) (msg *Message) {
+func (dec *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *mkrlwe.SecretKeySet) (msg *Message) {
 
 	ctTmp := ciphertext.CopyNew()
 	idset := ctTmp.IDSet()

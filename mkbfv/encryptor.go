@@ -13,10 +13,10 @@ type Encryptor struct {
 
 // NewEncryptor instantiates a new Encryptor for the BFV scheme.
 func NewEncryptor(params Parameters) *Encryptor {
-	bfvParams, _ := bfv.NewParameters(params.paramsQP.Parameters, params.T())
+	bfvParams, _ := bfv.NewParameters(params.Parameters.Parameters, params.T())
 
 	ret := new(Encryptor)
-	ret.Encryptor = mkrlwe.NewEncryptor(params.paramsQP)
+	ret.Encryptor = mkrlwe.NewEncryptor(params.Parameters)
 	ret.encoder = bfv.NewEncoder(bfvParams)
 	ret.params = params
 	ret.ptxtPool = bfv.NewPlaintext(bfvParams)
