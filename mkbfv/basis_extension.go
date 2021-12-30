@@ -166,11 +166,11 @@ func (conv *FastBasisExtender) RescaleNTT(polyQ *ring.Poly, polyR *ring.Poly) {
 
 }
 
-func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.SwitchingKey) {
-	beta := len(swkQP.Value)
+func (conv *FastBasisExtender) GadgetTransform(swkQP1, swkQP2, swkRP *mkrlwe.SwitchingKey) {
+	beta := len(swkQP1.Value)
 	alpha := len(conv.ringQ.Modulus) / beta
 
-	if beta != len(swkQMulP.Value) {
+	if beta != len(swkQP2.Value) {
 		panic("cannot GadgetTransform: swkQP & swkQMulP don't have the same dimension")
 	}
 
@@ -180,11 +180,11 @@ func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.Sw
 
 	// apply InvMForm
 	for i := 0; i < beta; i++ {
-		conv.ringQ.InvMForm(swkQP.Value[i].Q, swkQP.Value[i].Q)
-		conv.ringP.InvMForm(swkQP.Value[i].P, swkQP.Value[i].P)
+		conv.ringQ.InvMForm(swkQP1.Value[i].Q, swkQP1.Value[i].Q)
+		conv.ringP.InvMForm(swkQP1.Value[i].P, swkQP1.Value[i].P)
 
-		conv.ringQMul.InvMForm(swkQMulP.Value[i].Q, swkQMulP.Value[i].Q)
-		conv.ringP.InvMForm(swkQMulP.Value[i].P, swkQMulP.Value[i].P)
+		conv.ringQ.InvMForm(swkQP2.Value[i].Q, swkQP2.Value[i].Q)
+		conv.ringP.InvMForm(swkQP2.Value[i].P, swkQP2.Value[i].P)
 	}
 
 	Q := conv.ringQ.ModulusBigint
@@ -208,7 +208,7 @@ func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.Sw
 		InvQMulModQi := big.NewInt(1)
 		InvQMulModQi.Mod(InvQMul, Qi)
 
-		conv.modUpQPtoRP(swkQP.Value[i], swkRP.Value[i])
+		conv.modUpQPtoRP(swkQP1.Value[i], swkRP.Value[i])
 
 		/*
 			conv.ringR.MulScalarBigint(swkRP.Value[i].Q, InvQMulModQi, swkRP.Value[i].Q)
@@ -217,35 +217,44 @@ func (conv *FastBasisExtender) GadgetTransform(swkQP, swkQMulP, swkRP *mkrlwe.Sw
 		conv.ringR.MulScalarBigint(swkRP.Value[i].Q, QMul, swkRP.Value[i].Q)
 		conv.ringP.MulScalarBigint(swkRP.Value[i].P, QMul, swkRP.Value[i].P)
 
-	}
-
-	//transform QMul part
-	for i := 0; i < beta; i++ {
-		QMuli := big.NewInt(1)
-		for j := 0; j < alpha; j++ {
-			QMuli.Mul(QMuli, big.NewInt(int64(conv.ringQMul.Modulus[i*alpha+j])))
-		}
-
-		InvQModQMuli := big.NewInt(1)
-		InvQModQMuli.Mod(InvQ, QMuli)
-
-		conv.modUpQMulPtoRP(swkQMulP.Value[i], swkRP.Value[i+beta])
+		conv.modUpQPtoRP(swkQP2.Value[i], swkRP.Value[i+beta])
 
 		/*
-			conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, InvQModQMuli, swkRP.Value[i+beta].Q)
-			conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, InvQModQMuli, swkRP.Value[i+beta].P)
+			conv.ringR.MulScalarBigint(swkRP.Value[i].Q, InvQMulModQi, swkRP.Value[i].Q)
+			conv.ringP.MulScalarBigint(swkRP.Value[i].P, InvQMulModQi, swkRP.Value[i].P)
 		*/
-		conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, Q, swkRP.Value[i+beta].Q)
-		conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, Q, swkRP.Value[i+beta].P)
+		conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, QMul, swkRP.Value[i+beta].Q)
+		conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, QMul, swkRP.Value[i+beta].P)
+
 	}
+
+	/*
+		//transform QMul part
+		for i := 0; i < beta; i++ {
+			QMuli := big.NewInt(1)
+			for j := 0; j < alpha; j++ {
+				QMuli.Mul(QMuli, big.NewInt(int64(conv.ringQMul.Modulus[i*alpha+j])))
+			}
+
+			InvQModQMuli := big.NewInt(1)
+			InvQModQMuli.Mod(InvQ, QMuli)
+
+			conv.modUpQMulPtoRP(swkQMulP.Value[i], swkRP.Value[i+beta])
+
+				conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, InvQModQMuli, swkRP.Value[i+beta].Q)
+				conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, InvQModQMuli, swkRP.Value[i+beta].P)
+			conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, Q, swkRP.Value[i+beta].Q)
+			conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, Q, swkRP.Value[i+beta].P)
+		}
+	*/
 
 	// apply MForm
 	for i := 0; i < beta; i++ {
-		conv.ringQ.MForm(swkQP.Value[i].Q, swkQP.Value[i].Q)
-		conv.ringP.MForm(swkQP.Value[i].P, swkQP.Value[i].P)
+		conv.ringQ.MForm(swkQP1.Value[i].Q, swkQP1.Value[i].Q)
+		conv.ringP.MForm(swkQP1.Value[i].P, swkQP1.Value[i].P)
 
-		conv.ringQMul.MForm(swkQMulP.Value[i].Q, swkQMulP.Value[i].Q)
-		conv.ringP.MForm(swkQMulP.Value[i].P, swkQMulP.Value[i].P)
+		conv.ringQ.MForm(swkQP2.Value[i].Q, swkQP2.Value[i].Q)
+		conv.ringP.MForm(swkQP2.Value[i].P, swkQP2.Value[i].P)
 
 		conv.ringR.MForm(swkRP.Value[i].Q, swkRP.Value[i].Q)
 		conv.ringP.MForm(swkRP.Value[i].P, swkRP.Value[i].P)

@@ -26,6 +26,7 @@ type ParametersLiteral struct {
 // R = Q*QMul
 type Parameters struct {
 	paramsQP    mkrlwe.Parameters
+	paramsQP2   mkrlwe.Parameters
 	paramsQMulP mkrlwe.Parameters
 	paramsRP    mkrlwe.Parameters
 	ringT       *ring.Ring
@@ -75,6 +76,7 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 	}
 
 	params.paramsQP = mkrlwe.NewParameters(rlweParamsQP, 2)
+	params.paramsQP2 = mkrlwe.NewParameters(rlweParamsQP, 2)
 	params.paramsQMulP = mkrlwe.NewParameters(rlweParamsQMulP, 2)
 	params.paramsRP = mkrlwe.NewParameters(rlweParamsRP, 2)
 
@@ -96,7 +98,7 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 
 	// apply GadgetTransform
 	for _, idx := range idxs {
-		conv.GadgetTransform(params.paramsQP.CRS[idx], params.paramsQMulP.CRS[idx], params.paramsRP.CRS[idx])
+		conv.GadgetTransform(params.paramsQP.CRS[idx], params.paramsQP2.CRS[idx], params.paramsRP.CRS[idx])
 	}
 	return params
 }

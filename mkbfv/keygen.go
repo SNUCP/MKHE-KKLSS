@@ -76,9 +76,9 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *mkrlwe
 	levelQ := params.QCount() - 1
 	levelP := params.PCount() - 1
 	ringQP := params.RingQP()
-	ringQMulP := params.RingQMulP()
+	//ringQMulP := params.RingQMulP()
 	ringQ := params.RingQ()
-	ringQMul := params.RingQMul()
+	//ringQMul := params.RingQMul()
 	ringP := params.RingP()
 
 	id := sk.ID
@@ -89,17 +89,17 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *mkrlwe
 
 	//set CRS
 	a1 := params.paramsQP.CRS[0]
-	a2 := params.paramsQMulP.CRS[0]
+	a2 := params.paramsQP2.CRS[0]
 
 	u1 := params.paramsQP.CRS[-1]
-	u2 := params.paramsQMulP.CRS[-1]
+	u2 := params.paramsQP2.CRS[-1]
 
 	//generate vector b = -sa + e in MForm
 	b := rlk.Value[0]
 	b1 := mkrlwe.NewSwitchingKey(params.paramsQP)
-	b2 := mkrlwe.NewSwitchingKey(params.paramsQMulP)
+	b2 := mkrlwe.NewSwitchingKey(params.paramsQP)
 	e1 := params.RingQP().NewPoly()
-	e2 := params.RingQMulP().NewPoly()
+	e2 := params.RingQP().NewPoly()
 
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a1.Value[i], sk.ValueQP, b1.Value[i])
@@ -108,30 +108,30 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *mkrlwe
 		ringQP.SubLvl(levelQ, levelP, e1, b1.Value[i], b1.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, b1.Value[i], b1.Value[i])
 
-		ringQMulP.MulCoeffsMontgomeryLvl(levelQ, levelP, a2.Value[i], sk.ValueQMulP, b2.Value[i])
-		ringQMulP.InvMFormLvl(levelQ, levelP, b2.Value[i], b2.Value[i])
-		keygen.keygenQMulP.GenGaussianError(e2)
-		ringQMulP.SubLvl(levelQ, levelP, e2, b2.Value[i], b2.Value[i])
-		ringQMulP.MFormLvl(levelQ, levelP, b2.Value[i], b2.Value[i])
+		ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, a2.Value[i], sk.ValueQP, b2.Value[i])
+		ringQP.InvMFormLvl(levelQ, levelP, b2.Value[i], b2.Value[i])
+		keygen.keygenQP.GenGaussianError(e2)
+		ringQP.SubLvl(levelQ, levelP, e2, b2.Value[i], b2.Value[i])
+		ringQP.MFormLvl(levelQ, levelP, b2.Value[i], b2.Value[i])
 	}
 	keygen.baseconv.GadgetTransform(b1, b2, b)
 
 	//generate vector d = -ra + sg + e in MForm
 	d := rlk.Value[1]
 	d1 := mkrlwe.NewSwitchingKey(params.paramsQP)
-	d2 := mkrlwe.NewSwitchingKey(params.paramsQMulP)
+	d2 := mkrlwe.NewSwitchingKey(params.paramsQP)
 
 	keygen.GenBFVSwitchingKey(sk, d1, d2)
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a1.Value[i], r.ValueQP, d1.Value[i])
-		ringQMulP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a2.Value[i], r.ValueQMulP, d2.Value[i])
+		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a2.Value[i], r.ValueQP, d2.Value[i])
 	}
 	keygen.baseconv.GadgetTransform(d1, d2, d)
 
 	//generate vector v = -su - rg + e in MForm
 	v := rlk.Value[2]
 	v1 := mkrlwe.NewSwitchingKey(params.paramsQP)
-	v2 := mkrlwe.NewSwitchingKey(params.paramsQMulP)
+	v2 := mkrlwe.NewSwitchingKey(params.paramsQP)
 
 	keygen.GenBFVSwitchingKey(r, v1, v2)
 
@@ -140,8 +140,8 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *SecretKey) (rlk *mkrlwe
 		ringQ.NegLvl(levelQ, v1.Value[i].Q, v1.Value[i].Q)
 		ringP.NegLvl(levelP, v1.Value[i].P, v1.Value[i].P)
 
-		ringQMulP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u2.Value[i], sk.ValueQMulP, v2.Value[i])
-		ringQMul.NegLvl(levelQ, v2.Value[i].Q, v2.Value[i].Q)
+		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u2.Value[i], sk.ValueQP, v2.Value[i])
+		ringQ.NegLvl(levelQ, v2.Value[i].Q, v2.Value[i].Q)
 		ringP.NegLvl(levelP, v2.Value[i].P, v2.Value[i].P)
 	}
 	keygen.baseconv.GadgetTransform(v1, v2, v)
@@ -197,7 +197,7 @@ func (keygen *KeyGenerator) GenBFVSwitchingKey(sk *SecretKey, swk1, swk2 *mkrlwe
 			QMuli.Mul(QMuli, big.NewInt(int64(params.RingQMul().Modulus[i*alpha+j])))
 		}
 		Gi := big.NewInt(1)
-		Gi.Div(QMul, QMuli)
+		Gi.Div(QQMul, QMuli)
 
 		Ti := big.NewInt(1)
 		Ti.Div(QQMul, QMuli)
@@ -205,16 +205,17 @@ func (keygen *KeyGenerator) GenBFVSwitchingKey(sk *SecretKey, swk1, swk2 *mkrlwe
 
 		Gi.Mul(Gi, Ti)
 		Gi.Mul(Gi, P)
+		Gi.Div(Gi, QMul)
 
-		params.RingQMulP().InvMFormLvl(levelQ, levelP, sk.ValueQMulP, swk2.Value[i])
-		params.RingQMul().MulScalarBigint(swk2.Value[i].Q, Gi, swk2.Value[i].Q)
+		params.RingQP().InvMFormLvl(levelQ, levelP, sk.ValueQP, swk2.Value[i])
+		params.RingQ().MulScalarBigint(swk2.Value[i].Q, Gi, swk2.Value[i].Q)
 		params.RingP().MulScalarBigint(swk2.Value[i].P, Gi, swk2.Value[i].P)
 
-		e := params.RingQMulP().NewPoly()
-		keygen.keygenQMulP.GenGaussianError(e)
+		e := params.RingQP().NewPoly()
+		keygen.keygenQP.GenGaussianError(e)
 
-		params.RingQMulP().AddLvl(levelQ, levelP, swk2.Value[i], e, swk2.Value[i])
-		params.RingQMulP().MFormLvl(levelQ, levelP, swk2.Value[i], swk2.Value[i])
+		params.RingQP().AddLvl(levelQ, levelP, swk2.Value[i], e, swk2.Value[i])
+		params.RingQP().MFormLvl(levelQ, levelP, swk2.Value[i], swk2.Value[i])
 	}
 
 }
