@@ -21,7 +21,7 @@ func NewKeyGenerator(params Parameters) (keygen *KeyGenerator) {
 	return keygen
 }
 
-func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk *RelinearizationKey) {
+func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk *mkrlwe.RelinearizationKey) {
 
 	params := keygen.params
 	levelQ := params.QCount() - 1
@@ -33,18 +33,20 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk 
 	id := sk.ID
 
 	//rlk = (b, d, v)
-	rlk = NewRelinearizationKey(params, id)
+	rlk = mkrlwe.NewRelinearizationKey(params.paramsRP, id)
 	beta := params.Beta(levelQ)
 
 	//set CRS
 	a1 := params.CRS[0]
-	a2 := params.CRS[-3]
+	a2 := params.CRS[-1]
 
-	u := params.CRS[-1]
+	u1 := params.CRS[-1]
+	u2 := params.CRS[-4]
 
 	//generate vector b = -sa + e in MForm
-	b1 := rlk.Value[0].Value[0]
-	b2 := rlk.Value[1].Value[0]
+	b := rlk.Value[0]
+	b1 := mkrlwe.NewSwitchingKey(params.Parameters)
+	b2 := mkrlwe.NewSwitchingKey(params.Parameters)
 	e1 := params.RingQP().NewPoly()
 	e2 := params.RingQP().NewPoly()
 
@@ -61,26 +63,37 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk 
 		ringQP.SubLvl(levelQ, levelP, e2, b2.Value[i], b2.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, b2.Value[i], b2.Value[i])
 	}
+	keygen.baseconv.GadgetTransform(b1, b2, b)
 
 	//generate vector d = -ra + sg + e in MForm
-	d1 := rlk.Value[0].Value[1]
-	d2 := rlk.Value[1].Value[1]
+	d := rlk.Value[1]
+	d1 := mkrlwe.NewSwitchingKey(params.Parameters)
+	d2 := mkrlwe.NewSwitchingKey(params.Parameters)
 
 	keygen.GenBFVSwitchingKey(sk, d1, d2)
 	for i := 0; i < beta; i++ {
 		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a1.Value[i], r.Value, d1.Value[i])
 		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a2.Value[i], r.Value, d2.Value[i])
 	}
+	keygen.baseconv.GadgetTransform(d1, d2, d)
 
 	//generate vector v = -su - rg + e in MForm
-	v := rlk.Value[0].Value[2]
+	v := rlk.Value[2]
+	v1 := mkrlwe.NewSwitchingKey(params.Parameters)
+	v2 := mkrlwe.NewSwitchingKey(params.Parameters)
 
-	keygen.GenSwitchingKey(r, v)
+	keygen.GenBFVSwitchingKey(r, v1, v2)
+
 	for i := 0; i < beta; i++ {
-		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u.Value[i], sk.Value, v.Value[i])
-		ringQ.NegLvl(levelQ, v.Value[i].Q, v.Value[i].Q)
-		ringP.NegLvl(levelP, v.Value[i].P, v.Value[i].P)
+		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u1.Value[i], sk.Value, v1.Value[i])
+		ringQ.NegLvl(levelQ, v1.Value[i].Q, v1.Value[i].Q)
+		ringP.NegLvl(levelP, v1.Value[i].P, v1.Value[i].P)
+
+		ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, u2.Value[i], sk.Value, v2.Value[i])
+		ringQ.NegLvl(levelQ, v2.Value[i].Q, v2.Value[i].Q)
+		ringP.NegLvl(levelP, v2.Value[i].P, v2.Value[i].P)
 	}
+	keygen.baseconv.GadgetTransform(v1, v2, v)
 
 	return
 }
@@ -112,7 +125,6 @@ func (keygen *KeyGenerator) GenBFVSwitchingKey(sk *mkrlwe.SecretKey, swk1, swk2 
 		Ti.Div(QQMul, Qi)
 		Ti.ModInverse(Ti, Qi)
 
-		Gi.Mul(Gi, params.RingT().ModulusBigint)
 		Gi.Mul(Gi, Ti)
 		Gi.Mul(Gi, P)
 
@@ -140,7 +152,6 @@ func (keygen *KeyGenerator) GenBFVSwitchingKey(sk *mkrlwe.SecretKey, swk1, swk2 
 		Ti.Div(QQMul, QMuli)
 		Ti.ModInverse(Ti, QMuli)
 
-		Gi.Mul(Gi, params.RingT().ModulusBigint)
 		Gi.Mul(Gi, Ti)
 		Gi.Mul(Gi, P)
 		Gi.Div(Gi, QMul)
