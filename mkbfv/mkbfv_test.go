@@ -210,6 +210,8 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 	testContext.rtkSet = mkrlwe.NewRotationKeySet()
 	testContext.cjkSet = mkrlwe.NewConjugationKeySet()
 
+	testContext.rlkSet.AddRelinearizationKey(testContext.kgen.GenConstRelinearizationKey())
+
 	for id := range idset.Value {
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)

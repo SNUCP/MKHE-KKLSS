@@ -141,9 +141,6 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 		panic("Cannot MulAndRelin: op0 and ctOut have different levels")
 	}
 
-	idset0 := op0.IDSet()
-	idset1 := op1.IDSet()
-
 	params := ks.Parameters
 	ringQP := params.RingQP()
 	ringQ := params.RingQ()
@@ -155,7 +152,7 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 	y := NewSwitchingKey(params)
 
 	//gen x vector
-	for id := range idset0.Value {
+	for id := range op0.Value {
 		ks.Decompose(level, op0.Value[id], ks.swkPool)
 		d := rlkSet.Value[id].Value[1]
 		for i := 0; i < beta; i++ {
@@ -168,7 +165,7 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 	}
 
 	//gen y vector
-	for id := range idset1.Value {
+	for id := range op1.Value {
 		ks.Decompose(level, op1.Value[id], ks.swkPool)
 		b := rlkSet.Value[id].Value[0]
 		for i := 0; i < beta; i++ {
@@ -180,27 +177,8 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 		ringQP.MFormLvl(level, levelP, y.Value[i], y.Value[i])
 	}
 
-	//ctOut_0 <- op0_0 * op1_0
-	ringQ.MFormLvl(level, op0.Value["0"], ctOut.Value["0"])
-	ringQ.MulCoeffsMontgomeryLvl(level, op1.Value["0"], ctOut.Value["0"], ctOut.Value["0"])
-
-	//ctOut_j <- op0_0 * op1_j + op0_j * op1_0
-	ringQ.MFormLvl(level, op1.Value["0"], ks.polyQPool[0])
-	for id := range idset0.Value {
-		ringQ.MulCoeffsMontgomeryLvl(level, ks.polyQPool[0], op0.Value[id], ctOut.Value[id])
-	}
-
-	ringQ.MFormLvl(level, op0.Value["0"], ks.polyQPool[0])
-	for id := range idset1.Value {
-		if idset0.Has(id) {
-			ringQ.MulCoeffsMontgomeryAndAddLvl(level, ks.polyQPool[0], op1.Value[id], ctOut.Value[id])
-		} else {
-			ringQ.MulCoeffsMontgomeryLvl(level, ks.polyQPool[0], op1.Value[id], ctOut.Value[id])
-		}
-	}
-
 	//ctOut_j <- ctOut_j +  Inter(op1_j, x)
-	for id := range idset1.Value {
+	for id := range op1.Value {
 		ks.InternalProduct(level, op1.Value[id], x, ks.polyQPool[0])
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[0], ctOut.Value[id])
 	}
@@ -210,7 +188,7 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 
 	u := params.CRS[-1]
 
-	for id := range idset0.Value {
+	for id := range op0.Value {
 		v := rlkSet.Value[id].Value[2]
 		ks.InternalProduct(level, op0.Value[id], y, ks.polyQPool[0])
 

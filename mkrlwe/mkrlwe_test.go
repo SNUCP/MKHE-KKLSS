@@ -653,6 +653,7 @@ func testRelinearize(kgen *KeyGenerator, t *testing.T) {
 		skSet.AddSecretKey(sk2)
 
 		rlkSet := NewRelinearizationKeyKeySet()
+		rlkSet.AddRelinearizationKey(kgen.GenConstRelinearizationKey())
 		rlkSet.AddRelinearizationKey(rlk1)
 		rlkSet.AddRelinearizationKey(rlk2)
 

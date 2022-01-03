@@ -21,6 +21,29 @@ func NewKeyGenerator(params Parameters) (keygen *KeyGenerator) {
 	return keygen
 }
 
+// GenRelinKey generates a new EvaluationKey that will be used to relinearize constant term of Ciphertexts during multiplication.
+// RelinearizationKeys are triplet of polyvector in  MontgomeryForm
+func (keygen *KeyGenerator) GenConstRelinearizationKey() (rlk *mkrlwe.RelinearizationKey) {
+	params := keygen.params
+	ringQ := params.RingQ()
+	ringP := params.RingP()
+
+	sk := mkrlwe.NewSecretKey(params.Parameters, "0")
+	r := mkrlwe.NewSecretKey(params.Parameters, "0")
+
+	ringQ.AddScalar(sk.Value.Q, 1, sk.Value.Q)
+	ringP.AddScalar(sk.Value.P, 1, sk.Value.P)
+
+	ringQ.MForm(sk.Value.Q, sk.Value.Q)
+	ringP.MForm(sk.Value.P, sk.Value.P)
+
+	ringQ.MForm(r.Value.Q, r.Value.Q)
+	ringP.MForm(r.Value.P, r.Value.P)
+
+	rlk = keygen.GenRelinearizationKey(sk, r)
+	return
+}
+
 func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk *mkrlwe.RelinearizationKey) {
 
 	params := keygen.params
@@ -38,7 +61,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk 
 
 	//set CRS
 	a1 := params.CRS[0]
-	a2 := params.CRS[-1]
+	a2 := params.CRS[-3]
 
 	u1 := params.CRS[-1]
 	u2 := params.CRS[-4]
