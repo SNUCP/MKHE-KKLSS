@@ -12,6 +12,12 @@ func NewCiphertext(params Parameters, idset *mkrlwe.IDSet) (ciphertext *Cipherte
 	return &Ciphertext{mkrlwe.NewCiphertext(params.Parameters, idset, params.MaxLevel())}
 }
 
+// NewCiphertext creates a new ciphertext parameterized by degree, level and scale.
+// ciphertext is in NTT Form
+func NewCiphertextNTT(params Parameters, idset *mkrlwe.IDSet) (ciphertext *Ciphertext) {
+	return &Ciphertext{mkrlwe.NewCiphertextNTT(params.Parameters, idset, params.MaxLevel())}
+}
+
 // CopyNew creates a deep copy of the receiver ciphertext and returns it.
 func (ct *Ciphertext) CopyNew() *Ciphertext {
 	return &Ciphertext{ct.Ciphertext.CopyNew()}

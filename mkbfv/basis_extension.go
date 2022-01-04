@@ -64,12 +64,14 @@ func (conv *FastBasisExtender) ModUpQtoR(polyQ, polyR *ring.Poly) {
 	}
 }
 
+// assume input polyQ is in NTTForm
 func (conv *FastBasisExtender) RescaleNTT(polyQ *ring.Poly, polyQOut *ring.Poly) {
 
 	levelQ := len(conv.ringQ.Modulus) - 1
 	levelQMul := levelQ
 
 	conv.ringQ.MulCoeffsMontgomery(polyQ, conv.mFormQMul, conv.polypoolQ)
+	conv.ringQ.InvNTT(conv.polypoolQ, conv.polypoolQ)
 	conv.ringQMul.MulScalar(conv.polypoolQMul, 0, conv.polypoolQMul)
 	conv.convQQMul.ModDownQPtoP(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul, conv.polypoolQMul)
 	conv.convQQMul.ModUpPtoQ(levelQMul, levelQ, conv.polypoolQMul, conv.polypoolQ)

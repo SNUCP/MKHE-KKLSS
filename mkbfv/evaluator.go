@@ -24,7 +24,7 @@ func NewEvaluator(params Parameters) *Evaluator {
 
 func (eval *Evaluator) newCiphertextBinary(op0, op1 *Ciphertext) (ctOut *Ciphertext) {
 	idset := op0.IDSet().Union(op1.IDSet())
-	return NewCiphertext(eval.params, idset)
+	return NewCiphertextNTT(eval.params, idset)
 }
 
 // evaluateInPlaceBinary applies the provided function in place on el0 and el1 and returns the result in elOut.
@@ -93,31 +93,18 @@ func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *Relinearization
 // The procedure will panic if the evaluator was not created with an relinearization key.
 func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
 
-	params := eval.params
-
-	ct0NTT := mkrlwe.NewCiphertextNTT(eval.params.Parameters, ct0.IDSet(), eval.params.MaxLevel())
-	ct1NTT := mkrlwe.NewCiphertextNTT(eval.params.Parameters, ct1.IDSet(), eval.params.MaxLevel())
-	ctOutNTT := mkrlwe.NewCiphertextNTT(eval.params.Parameters, ctOut.IDSet(), eval.params.MaxLevel())
-
-	for id := range ct0NTT.Value {
-		params.RingQ().NTT(ct0.Value[id], ct0NTT.Value[id])
+	ct1Rescaled := ct1.CopyNew()
+	for id := range ct1.Value {
+		eval.conv.RescaleNTT(ct1.Value[id], ct1Rescaled.Value[id])
 	}
 
-	for id := range ct1NTT.Value {
-		eval.conv.RescaleNTT(ct1.Value[id], ct1NTT.Value[id])
-	}
-
-	eval.ksw.MulAndRelinBFV(ct0NTT, ct1NTT, rlkSet, ctOutNTT)
-
-	for id := range ctOutNTT.Value {
-		params.RingQ().InvNTT(ctOutNTT.Value[id], ctOut.Value[id])
-	}
+	eval.ksw.MulAndRelinBFV(ct0.Ciphertext, ct1Rescaled.Ciphertext, rlkSet, ctOut.Ciphertext)
 }
 
 // RotateNew rotates the columns of ct0 by k positions to the left, and returns the result in a newly created element.
 // If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
 func (eval *Evaluator) RotateNew(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.RotationKeySet) (ctOut *Ciphertext) {
-	ctOut = NewCiphertext(eval.params, ct0.IDSet())
+	ctOut = NewCiphertextNTT(eval.params, ct0.IDSet())
 	eval.rotate(ct0, rotidx, rkSet, ctOut)
 	return
 }
@@ -142,15 +129,7 @@ func (eval *Evaluator) rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.Rotatio
 
 	_, in := eval.params.CRS[rotidx]
 
-	ringQ := eval.params.RingQ()
 	ctTmp := ct0.CopyNew()
-
-	for id := range ctOut.Value {
-		ringQ.NTT(ctTmp.Value[id], ctTmp.Value[id])
-		ctTmp.Value[id].IsNTT = true
-		ctOut.Value[id].IsNTT = true
-	}
-
 	if in {
 		eval.ksw.Rotate(ctTmp.Ciphertext, rotidx, rkSet, ctOut.Ciphertext)
 	} else {
@@ -162,19 +141,13 @@ func (eval *Evaluator) rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.Rotatio
 			rotidx /= 2
 		}
 	}
-
-	for id := range ctOut.Value {
-		ringQ.InvNTT(ctOut.Value[id], ctOut.Value[id])
-		ctOut.Value[id].IsNTT = false
-	}
-
 }
 
 // ConjugateNew conjugates ct0 (which is equivalent to a row rotation) and returns the result in a newly
 // created element. If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key
 // for the row rotation needs to be provided.
 func (eval *Evaluator) ConjugateNew(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySet) (ctOut *Ciphertext) {
-	ctOut = NewCiphertext(eval.params, ct0.IDSet())
+	ctOut = NewCiphertextNTT(eval.params, ct0.IDSet())
 	eval.conjugate(ct0, ckSet, ctOut)
 	return
 }
@@ -182,20 +155,6 @@ func (eval *Evaluator) ConjugateNew(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKe
 // Conjugate conjugates ct0 (which is equivalent to a row rotation) and returns the result in ctOut.
 // If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the row rotation needs to be provided.
 func (eval *Evaluator) conjugate(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySet, ctOut *Ciphertext) {
-
-	ringQ := eval.params.RingQ()
 	ctTmp := ct0.CopyNew()
-
-	for id := range ctOut.Value {
-		ringQ.NTT(ctTmp.Value[id], ctTmp.Value[id])
-		ctTmp.Value[id].IsNTT = true
-		ctOut.Value[id].IsNTT = true
-	}
-
 	eval.ksw.Conjugate(ctTmp.Ciphertext, ckSet, ctOut.Ciphertext)
-
-	for id := range ctOut.Value {
-		ringQ.InvNTT(ctOut.Value[id], ctOut.Value[id])
-		ctOut.Value[id].IsNTT = false
-	}
 }

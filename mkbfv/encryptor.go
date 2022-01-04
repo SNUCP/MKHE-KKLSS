@@ -49,5 +49,11 @@ func (enc *Encryptor) EncryptMsgNew(msg *Message, pk *mkrlwe.PublicKey) (ctOut *
 	idset.Add(pk.ID)
 	ctOut = NewCiphertext(enc.params, idset)
 	enc.EncryptMsg(msg, pk, ctOut)
+
+	for id := range ctOut.Value {
+		enc.params.RingQ().NTT(ctOut.Value[id], ctOut.Value[id])
+		ctOut.Value[id].IsNTT = true
+	}
+
 	return
 }

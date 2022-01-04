@@ -34,6 +34,12 @@ func (dec *Decryptor) PartialDecrypt(ct *Ciphertext, sk *mkrlwe.SecretKey) {
 func (dec *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *mkrlwe.SecretKeySet) (msg *Message) {
 
 	ctTmp := ciphertext.CopyNew()
+
+	for id := range ctTmp.Value {
+		dec.params.RingQ().InvNTT(ctTmp.Value[id], ctTmp.Value[id])
+		ctTmp.Value[id].IsNTT = false
+	}
+
 	idset := ctTmp.IDSet()
 	for _, sk := range skSet.Value {
 		if idset.Has(sk.ID) {
