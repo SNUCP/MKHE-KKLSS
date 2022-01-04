@@ -160,8 +160,6 @@ func (conv *FastBasisExtender) Quantize(polyR *ring.Poly, polyQ *ring.Poly, t ui
 	}
 
 	conv.ringQ.InvNTT(polyQ, polyQ)
-	conv.ringQ.MulScalar(polyQ, t, polyQ)
-
 }
 
 func (conv *FastBasisExtender) RescaleNTT(polyQ *ring.Poly, polyR *ring.Poly) {
@@ -293,17 +291,8 @@ func (conv *FastBasisExtender) GadgetTransform2(swkQP1, swkQP2, swkRP *mkrlwe.Sw
 
 		conv.modUpQPtoRP(swkQP1.Value[i], swkRP.Value[i])
 
-		/*
-			conv.ringR.MulScalarBigint(swkRP.Value[i].Q, QMul, swkRP.Value[i].Q)
-			conv.ringP.MulScalarBigint(swkRP.Value[i].P, QMul, swkRP.Value[i].P)
-		*/
-
 		conv.modUpQPtoRP(swkQP2.Value[i], swkRP.Value[i+beta])
 
-		/*
-			conv.ringR.MulScalarBigint(swkRP.Value[i+beta].Q, QMul, swkRP.Value[i+beta].Q)
-			conv.ringP.MulScalarBigint(swkRP.Value[i+beta].P, QMul, swkRP.Value[i+beta].P)
-		*/
 	}
 
 	// apply MForm

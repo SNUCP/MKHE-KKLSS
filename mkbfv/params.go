@@ -81,7 +81,7 @@ func NewParametersFromLiteral(pl ParametersLiteral) (params Parameters) {
 		params.RingP(), params.RingQ(),
 		ringQMul, params.paramsRP.RingQ(),
 	)
-	conv.GadgetTransform(params.CRS[0], params.CRS[-3], params.paramsRP.CRS[0])
+
 	conv.GadgetTransform(params.CRS[-1], params.CRS[-4], params.paramsRP.CRS[-1])
 
 	return params
