@@ -64,16 +64,6 @@ func (conv *FastBasisExtender) ModUpQtoR(polyQ, polyR *ring.Poly) {
 	}
 }
 
-// assume input polyR is in NTTForm
-func (conv *FastBasisExtender) ModQ(polyR *ring.Poly, polyQ *ring.Poly) {
-
-	levelQ := len(conv.ringQ.Modulus) - 1
-
-	for i := 0; i < levelQ+1; i++ {
-		copy(polyQ.Coeffs[i], polyR.Coeffs[i])
-	}
-}
-
 func (conv *FastBasisExtender) RescaleNTT(polyQ *ring.Poly, polyQOut *ring.Poly) {
 
 	levelQ := len(conv.ringQ.Modulus) - 1

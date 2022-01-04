@@ -27,18 +27,18 @@ var PN15QP873 = ParametersLiteral{
 
 	Q: []uint64{
 		// 12 x 45
-		0x200000b20001, 0x200000c80001, 0x1fffff360001,
-		0x200000e20001, 0x1fffff060001, 0x200000fe0001,
-		0x1ffffede0001, 0x1ffffeca0001, 0x1ffffeb40001,
-		0x200001520001, 0x1ffffe760001, 0x2000019a0001,
-	},
-
-	QMul: []uint64{
-		// 12 x 45
 		0x2000000a0001, 0x2000000e0001, 0x1fffffc20001,
 		0x200000440001, 0x200000500001, 0x200000620001,
 		0x1fffff980001, 0x2000006a0001, 0x1fffff7e0001,
 		0x200000860001, 0x200000a60001, 0x200000aa0001,
+	},
+
+	QMul: []uint64{
+		// 12 x 45
+		0x200000b20001, 0x200000c80001, 0x1fffff360001,
+		0x200000e20001, 0x1fffff060001, 0x200000fe0001,
+		0x1ffffede0001, 0x1ffffeca0001, 0x1ffffeb40001,
+		0x200001520001, 0x1ffffe760001, 0x2000019a0001,
 	},
 
 	P: []uint64{
@@ -54,16 +54,6 @@ var PN14QP435 = ParametersLiteral{
 	LogN: 14,
 
 	Q: []uint64{
-		0x10000140001,
-		0x100003e0001,
-		0x100004b0001,
-		0x10000650001,
-		0x10000960001,
-		0x10000ab0001,
-		// 6 x 40
-	},
-
-	QMul: []uint64{
 		// 6 x 40
 		0x10000290001,
 		0x10000470001,
@@ -71,6 +61,16 @@ var PN14QP435 = ParametersLiteral{
 		0x10000890001,
 		0x10000a40001,
 		0x10000b60001,
+	},
+
+	QMul: []uint64{
+		0x10000140001,
+		0x100003e0001,
+		0x100004b0001,
+		0x10000650001,
+		0x10000960001,
+		0x10000ab0001,
+		// 6 x 40
 	},
 
 	P: []uint64{
@@ -89,18 +89,18 @@ var PN13QP220 = ParametersLiteral{
 
 	Q: []uint64{
 		// 4 x 35
-		0x800008001,
-		0x800250001,
-		0x800280001,
-		0x8002f0001,
-	},
-
-	QMul: []uint64{
-		// 4 x 35
 		0x8000f8001,
 		0x800260001,
 		0x8002a8001,
 		0x800398001,
+	},
+
+	QMul: []uint64{
+		// 4 x 35
+		0x800008001,
+		0x800250001,
+		0x800280001,
+		0x8002f0001,
 	},
 
 	P: []uint64{
@@ -240,8 +240,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 }
 
 func TestMKBFV(t *testing.T) {
-	//defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
-	defaultParams := []ParametersLiteral{PN13QP220}
+	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 

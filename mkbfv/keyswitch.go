@@ -44,11 +44,12 @@ func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
 func (ks *KeySwitcher) DecomposeBFV(levelQ int, a *ring.Poly, ad1, ad2 *mkrlwe.SwitchingKey) {
 	params := ks.params
 	levelP := params.PCount() - 1
+	levelR := params.paramsRP.QCount() - 1
 	beta := params.Beta(levelQ)
 	polyR := ks.polyRPool
 
 	ks.conv.ModUpQtoR(a, polyR)
-	ks.kswRP.Decompose(2*levelQ+1, polyR, ks.swkRPPool)
+	ks.kswRP.Decompose(levelR, polyR, ks.swkRPPool)
 
 	for i := 0; i < beta; i++ {
 		for j := 0; j < levelQ+1; j++ {
