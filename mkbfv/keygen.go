@@ -86,7 +86,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk 
 		ringQP.SubLvl(levelQ, levelP, e2, b2.Value[i], b2.Value[i])
 		ringQP.MFormLvl(levelQ, levelP, b2.Value[i], b2.Value[i])
 	}
-	keygen.baseconv.GadgetTransform(b1, b2, b)
+	keygen.baseconv.GadgetTransform2(b1, b2, b)
 
 	//generate vector d = -ra + sg + e in MForm
 	d := rlk.Value[1]
@@ -98,7 +98,7 @@ func (keygen *KeyGenerator) GenRelinearizationKey(sk, r *mkrlwe.SecretKey) (rlk 
 		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a1.Value[i], r.Value, d1.Value[i])
 		ringQP.MulCoeffsMontgomeryAndSubLvl(levelQ, levelP, a2.Value[i], r.Value, d2.Value[i])
 	}
-	keygen.baseconv.GadgetTransform(d1, d2, d)
+	keygen.baseconv.GadgetTransform2(d1, d2, d)
 
 	//generate vector v = -su - rg + e in MForm
 	v := rlk.Value[2]
