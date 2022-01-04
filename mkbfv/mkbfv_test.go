@@ -120,7 +120,7 @@ type testParams struct {
 	kgen      *KeyGenerator
 	skSet     *mkrlwe.SecretKeySet
 	pkSet     *mkrlwe.PublicKeySet
-	rlkSet    *mkrlwe.RelinearizationKeySet
+	rlkSet    *RelinearizationKeySet
 	rtkSet    *mkrlwe.RotationKeySet
 	cjkSet    *mkrlwe.ConjugationKeySet
 	encryptor *Encryptor
@@ -206,7 +206,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 	testContext.skSet = mkrlwe.NewSecretKeySet()
 	testContext.pkSet = mkrlwe.NewPublicKeyKeySet()
-	testContext.rlkSet = mkrlwe.NewRelinearizationKeyKeySet()
+	testContext.rlkSet = NewRelinearizationKeyKeySet()
 	testContext.rtkSet = mkrlwe.NewRotationKeySet()
 	testContext.cjkSet = mkrlwe.NewConjugationKeySet()
 
@@ -240,7 +240,8 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 }
 
 func TestMKBFV(t *testing.T) {
-	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
+	//defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
+	defaultParams := []ParametersLiteral{PN13QP220}
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 

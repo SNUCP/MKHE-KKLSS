@@ -1,0 +1,180 @@
+package mkbfv
+
+import "mk-lattigo/mkrlwe"
+import "github.com/ldsec/lattigo/v2/ring"
+
+type KeySwitcher struct {
+	*mkrlwe.KeySwitcher
+	kswRP  *mkrlwe.KeySwitcher
+	params Parameters
+	conv   *FastBasisExtender
+
+	swkRPPool *mkrlwe.SwitchingKey
+
+	swkPool1 *mkrlwe.SwitchingKey
+	swkPool2 *mkrlwe.SwitchingKey
+
+	polyQPool1 *ring.Poly
+	polyQPool2 *ring.Poly
+
+	polyRPool *ring.Poly
+}
+
+func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
+	ks = new(KeySwitcher)
+	ks.KeySwitcher = mkrlwe.NewKeySwitcher(params.Parameters)
+	ks.kswRP = mkrlwe.NewKeySwitcher(params.paramsRP)
+	ks.params = params
+	ks.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQMul(), params.RingR())
+
+	ks.swkRPPool = mkrlwe.NewSwitchingKey(params.paramsRP)
+
+	ks.swkPool1 = mkrlwe.NewSwitchingKey(params.Parameters)
+	ks.swkPool2 = mkrlwe.NewSwitchingKey(params.Parameters)
+
+	ks.polyQPool1 = params.RingQ().NewPoly()
+	ks.polyQPool1.IsNTT = true
+	ks.polyQPool2 = params.RingQ().NewPoly()
+	ks.polyQPool2.IsNTT = true
+	ks.polyRPool = params.RingR().NewPoly()
+	ks.polyRPool.IsNTT = true
+	return
+}
+
+func (ks *KeySwitcher) DecomposeBFV(levelQ int, a *ring.Poly, ad1, ad2 *mkrlwe.SwitchingKey) {
+	params := ks.params
+	levelP := params.PCount() - 1
+	beta := params.Beta(levelQ)
+	polyR := ks.polyRPool
+
+	ks.conv.ModUpQtoR(a, polyR)
+	ks.kswRP.Decompose(2*levelQ+1, polyR, ks.swkRPPool)
+
+	for i := 0; i < beta; i++ {
+		for j := 0; j < levelQ+1; j++ {
+			copy(ad1.Value[i].Q.Coeffs[j], ks.swkRPPool.Value[i].Q.Coeffs[j])
+			copy(ad2.Value[i].Q.Coeffs[j], ks.swkRPPool.Value[i+beta].Q.Coeffs[j])
+		}
+
+		for j := 0; j < levelP+1; j++ {
+			copy(ad1.Value[i].P.Coeffs[j], ks.swkRPPool.Value[i].P.Coeffs[j])
+			copy(ad2.Value[i].P.Coeffs[j], ks.swkRPPool.Value[i+beta].P.Coeffs[j])
+		}
+	}
+}
+
+func (ks *KeySwitcher) InternalProductBFV(levelQ int, a *ring.Poly, bg1, bg2 *mkrlwe.SwitchingKey, c *ring.Poly) {
+	params := ks.params
+	ringQ := params.RingQ()
+	ringP := params.RingP()
+	ringQP := params.RingQP()
+
+	levelP := params.PCount() - 1
+	beta := params.Beta(levelQ)
+
+	c1QP := ks.Pool[1]
+
+	ks.DecomposeBFV(levelQ, a, ks.swkPool1, ks.swkPool2)
+
+	// Key switching with CRT decomposition for the Qi
+	for i := 0; i < beta; i++ {
+		if i == 0 {
+			ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, bg1.Value[i], ks.swkPool1.Value[i], c1QP)
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, bg2.Value[i], ks.swkPool2.Value[i], c1QP)
+		} else {
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, bg1.Value[i], ks.swkPool1.Value[i], c1QP)
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, bg2.Value[i], ks.swkPool2.Value[i], c1QP)
+		}
+	}
+
+	// rescale by P
+	if a.IsNTT {
+		ks.Baseconverter.ModDownQPtoQNTT(levelQ, levelP, c1QP.Q, c1QP.P, c)
+	} else {
+		ringQ.InvNTTLazyLvl(levelQ, c1QP.Q, c1QP.Q)
+		ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
+
+		ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
+	}
+}
+
+// MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
+// Input ciphertext should be in NTT form
+func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *RelinearizationKeySet, ctOut *mkrlwe.Ciphertext) {
+
+	level := ctOut.Level()
+
+	if op0.Level() < level {
+		panic("Cannot MulAndRelin: op0 and op1 have different levels")
+	}
+
+	if ctOut.Level() < level {
+		panic("Cannot MulAndRelin: op0 and ctOut have different levels")
+	}
+
+	params := ks.Parameters
+	ringQP := params.RingQP()
+	ringQ := params.RingQ()
+
+	levelP := params.PCount() - 1
+	beta := params.Beta(level)
+
+	x1 := mkrlwe.NewSwitchingKey(params)
+	x2 := mkrlwe.NewSwitchingKey(params)
+	y1 := mkrlwe.NewSwitchingKey(params)
+	y2 := mkrlwe.NewSwitchingKey(params)
+
+	//gen x vector
+	for id := range op0.Value {
+		ks.DecomposeBFV(level, op0.Value[id], ks.swkPool1, ks.swkPool2)
+		d1 := rlkSet.Value[id].Value[0].Value[1]
+		d2 := rlkSet.Value[id].Value[1].Value[1]
+		for i := 0; i < beta; i++ {
+			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, d1.Value[i], ks.swkPool1.Value[i], x1.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, d2.Value[i], ks.swkPool2.Value[i], x2.Value[i])
+		}
+	}
+
+	for i := 0; i < beta; i++ {
+		ringQP.MFormLvl(level, levelP, x1.Value[i], x1.Value[i])
+		ringQP.MFormLvl(level, levelP, x2.Value[i], x2.Value[i])
+	}
+
+	//gen y vector
+	for id := range op1.Value {
+		ks.DecomposeBFV(level, op1.Value[id], ks.swkPool1, ks.swkPool2)
+		b1 := rlkSet.Value[id].Value[0].Value[0]
+		b2 := rlkSet.Value[id].Value[1].Value[0]
+		for i := 0; i < beta; i++ {
+			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, b1.Value[i], ks.swkPool1.Value[i], y1.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, b2.Value[i], ks.swkPool2.Value[i], y2.Value[i])
+		}
+	}
+
+	for i := 0; i < beta; i++ {
+		ringQP.MFormLvl(level, levelP, y1.Value[i], y1.Value[i])
+		ringQP.MFormLvl(level, levelP, y2.Value[i], y2.Value[i])
+	}
+
+	//ctOut_j <- ctOut_j +  Inter(op1_j, x)
+	for id := range op1.Value {
+		ks.InternalProductBFV(level, op1.Value[id], x1, x2, ks.polyQPool1)
+		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool1, ctOut.Value[id])
+	}
+
+	//ctOut_0 <- ctOut_0 + Inter(Inter(op0_i, y), v_i)
+	//ctOut_i <- ctOut_i + Inter(Inter(op0_i, y), u)
+
+	u := params.CRS[-1]
+
+	for id := range op0.Value {
+		v := rlkSet.Value[id].Value[0].Value[2]
+		ks.InternalProductBFV(level, op0.Value[id], y1, y2, ks.polyQPool1)
+
+		ks.InternalProduct(level, ks.polyQPool1, v, ks.polyQPool2)
+		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool2, ctOut.Value["0"])
+
+		ks.InternalProduct(level, ks.polyQPool1, u, ks.polyQPool2)
+		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool2, ctOut.Value[id])
+	}
+}

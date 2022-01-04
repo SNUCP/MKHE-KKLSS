@@ -6,8 +6,7 @@ import "github.com/ldsec/lattigo/v2/ring"
 
 type Evaluator struct {
 	params Parameters
-	kswRP  *mkrlwe.KeySwitcher
-	kswQP  *mkrlwe.KeySwitcher
+	ksw    *KeySwitcher
 	conv   *FastBasisExtender
 }
 
@@ -17,8 +16,7 @@ type Evaluator struct {
 func NewEvaluator(params Parameters) *Evaluator {
 	eval := new(Evaluator)
 	eval.params = params
-	eval.kswRP = mkrlwe.NewKeySwitcher(params.paramsRP)
-	eval.kswQP = mkrlwe.NewKeySwitcher(params.Parameters)
+	eval.ksw = NewKeySwitcher(params)
 	eval.conv = NewFastBasisExtender(params.RingP(), params.RingQ(), params.RingQMul(), params.RingR())
 
 	return eval
@@ -43,18 +41,6 @@ func (eval *Evaluator) evaluateInPlace(ct0, ct1, ctOut *Ciphertext, evaluate fun
 		} else {
 			evaluate(ct0.Value[id], ct1.Value[id], ctOut.Value[id])
 		}
-	}
-}
-
-func (eval *Evaluator) modUpAndNTT(ctQ, ctR *mkrlwe.Ciphertext) {
-	for id := range ctQ.Value {
-		eval.conv.ModUpQtoRAndNTT(ctQ.Value[id], ctR.Value[id])
-	}
-}
-
-func (eval *Evaluator) modUpAndRescaleNTT(ctQ, ctR *mkrlwe.Ciphertext) {
-	for id := range ctQ.Value {
-		eval.conv.RescaleNTT(ctQ.Value[id], ctR.Value[id])
 	}
 }
 
@@ -95,7 +81,7 @@ func (eval *Evaluator) SubNew(op0, op1 *Ciphertext) (ctOut *Ciphertext) {
 // MulRelinNew multiplies ct0 by ct1 with relinearization and returns the result in a newly created element.
 // The procedure will panic if either op0.Degree or op1.Degree > 1.
 // The procedure will panic if the evaluator was not created with an relinearization key.
-func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *mkrlwe.RelinearizationKeySet) (ctOut *Ciphertext) {
+func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *RelinearizationKeySet) (ctOut *Ciphertext) {
 	ctOut = eval.newCiphertextBinary(op0, op1)
 	eval.mulRelin(op0, op1, rlkSet, ctOut)
 	return
@@ -105,19 +91,26 @@ func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relinear
 // The procedure will panic if either op0.Degree or op1.Degree > 1.
 // The procedure will panic if ctOut.Degree != op0.Degree + op1.Degree.
 // The procedure will panic if the evaluator was not created with an relinearization key.
-func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *mkrlwe.RelinearizationKeySet, ctOut *Ciphertext) {
+func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
 
-	ct0R := mkrlwe.NewCiphertextNTT(eval.params.paramsRP, ct0.IDSet(), eval.params.paramsRP.MaxLevel())
-	ct1R := mkrlwe.NewCiphertextNTT(eval.params.paramsRP, ct1.IDSet(), eval.params.paramsRP.MaxLevel())
-	ctOutR := mkrlwe.NewCiphertextNTT(eval.params.paramsRP, ctOut.IDSet(), eval.params.paramsRP.MaxLevel())
+	params := eval.params
 
-	eval.modUpAndNTT(ct0.Ciphertext, ct0R)
-	eval.modUpAndRescaleNTT(ct1.Ciphertext, ct1R)
+	ct0NTT := mkrlwe.NewCiphertextNTT(eval.params.Parameters, ct0.IDSet(), eval.params.MaxLevel())
+	ct1NTT := mkrlwe.NewCiphertextNTT(eval.params.Parameters, ct1.IDSet(), eval.params.MaxLevel())
+	ctOutNTT := mkrlwe.NewCiphertextNTT(eval.params.Parameters, ctOut.IDSet(), eval.params.MaxLevel())
 
-	eval.kswRP.MulAndRelin(ct0R, ct1R, rlkSet, ctOutR)
+	for id := range ct0NTT.Value {
+		params.RingQ().NTT(ct0.Value[id], ct0NTT.Value[id])
+	}
 
-	for id := range ctOutR.Value {
-		eval.conv.Quantize(ctOutR.Value[id], ctOut.Value[id], eval.params.T())
+	for id := range ct1NTT.Value {
+		eval.conv.RescaleNTT(ct1.Value[id], ct1NTT.Value[id])
+	}
+
+	eval.ksw.MulAndRelinBFV(ct0NTT, ct1NTT, rlkSet, ctOutNTT)
+
+	for id := range ctOutNTT.Value {
+		params.RingQ().InvNTT(ctOutNTT.Value[id], ctOut.Value[id])
 	}
 }
 
@@ -159,11 +152,11 @@ func (eval *Evaluator) rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.Rotatio
 	}
 
 	if in {
-		eval.kswQP.Rotate(ctTmp.Ciphertext, rotidx, rkSet, ctOut.Ciphertext)
+		eval.ksw.Rotate(ctTmp.Ciphertext, rotidx, rkSet, ctOut.Ciphertext)
 	} else {
 		for k := 1; rotidx > 0; k *= 2 {
 			if rotidx%2 != 0 {
-				eval.kswQP.Rotate(ctTmp.Ciphertext, k, rkSet, ctOut.Ciphertext)
+				eval.ksw.Rotate(ctTmp.Ciphertext, k, rkSet, ctOut.Ciphertext)
 				ctTmp.Ciphertext.Copy(ctOut.Ciphertext)
 			}
 			rotidx /= 2
@@ -199,7 +192,7 @@ func (eval *Evaluator) conjugate(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySe
 		ctOut.Value[id].IsNTT = true
 	}
 
-	eval.kswQP.Conjugate(ctTmp.Ciphertext, ckSet, ctOut.Ciphertext)
+	eval.ksw.Conjugate(ctTmp.Ciphertext, ckSet, ctOut.Ciphertext)
 
 	for id := range ctOut.Value {
 		ringQ.InvNTT(ctOut.Value[id], ctOut.Value[id])
