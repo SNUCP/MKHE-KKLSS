@@ -131,7 +131,7 @@ func (keygen *KeyGenerator) GenBFVSwitchingKey(sk *mkrlwe.SecretKey, swk1, swk2 
 			Qi.Mul(Qi, big.NewInt(int64(params.RingQ().Modulus[i*alpha+j])))
 		}
 		Gi := big.NewInt(1)
-		Gi.Div(Q, Qi)
+		Gi.Div(QQMul, Qi)
 
 		Ti := big.NewInt(1)
 		Ti.Div(QQMul, Qi)
@@ -140,6 +140,7 @@ func (keygen *KeyGenerator) GenBFVSwitchingKey(sk *mkrlwe.SecretKey, swk1, swk2 
 		Gi.Mul(Gi, params.RingT().ModulusBigint)
 		Gi.Mul(Gi, Ti)
 		Gi.Mul(Gi, P)
+		Gi.Div(Gi, QMul)
 
 		params.RingQP().InvMFormLvl(levelQ, levelP, sk.Value, swk1.Value[i])
 		params.RingQ().MulScalarBigint(swk1.Value[i].Q, Gi, swk1.Value[i].Q)

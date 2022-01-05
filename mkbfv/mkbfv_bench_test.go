@@ -7,7 +7,7 @@ import (
 	"mk-lattigo/mkrlwe"
 )
 
-func BenchmarkMKCKKS(b *testing.B) {
+func BenchmarkMKBFV(b *testing.B) {
 
 	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
 
