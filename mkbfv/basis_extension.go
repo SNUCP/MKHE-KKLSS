@@ -13,6 +13,7 @@ type FastBasisExtender struct {
 
 	polypoolQ    *ring.Poly
 	polypoolQMul *ring.Poly
+	polypoolR    *ring.Poly
 	mFormQMul    *ring.Poly
 }
 
@@ -35,6 +36,7 @@ func NewFastBasisExtender(ringP, ringQ, ringQMul, ringR *ring.Ring) (conv *FastB
 
 	conv.polypoolQ = ringQ.NewPoly()
 	conv.polypoolQMul = ringQMul.NewPoly()
+	conv.polypoolR = ringR.NewPoly()
 
 	conv.mFormQMul = ringQ.NewPoly()
 	ringQ.AddScalarBigint(conv.mFormQMul, ringQMul.ModulusBigint, conv.mFormQMul)
@@ -58,6 +60,23 @@ func (conv *FastBasisExtender) ModUpQtoR(polyQ, polyR *ring.Poly) {
 	for i := 0; i < levelQMul+1; i++ {
 		copy(polyR.Coeffs[i+levelQ+1], conv.polypoolQMul.Coeffs[i])
 	}
+}
+
+// assume input and output are in InvNTTForm
+func (conv *FastBasisExtender) Quantize(polyR, polyQ *ring.Poly, t uint64) {
+
+	levelQ := len(conv.ringQ.Modulus) - 1
+	levelQMul := levelQ
+
+	conv.ringR.MulScalar(polyR, t, conv.polypoolR)
+	conv.ringR.InvNTT(conv.polypoolR, conv.polypoolR)
+
+	for i := 0; i < levelQ+1; i++ {
+		copy(conv.polypoolQ.Coeffs[i], conv.polypoolR.Coeffs[i])
+		copy(conv.polypoolQMul.Coeffs[i], conv.polypoolR.Coeffs[i+levelQ+1])
+	}
+
+	conv.convQQMul.ModDownQPtoQ(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul, polyQ)
 }
 
 // assume input polyQ is in InvNTTForm

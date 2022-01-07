@@ -151,8 +151,6 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 	// gen sk, pk, rlk, rk
 
-	testContext.rlkSet.AddRelinearizationKey(testContext.kgen.GenConstRelinearizationKey())
-
 	for id := range idset.Value {
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)

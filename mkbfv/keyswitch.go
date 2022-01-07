@@ -17,7 +17,9 @@ type KeySwitcher struct {
 	polyQPool1 *ring.Poly
 	polyQPool2 *ring.Poly
 
-	polyRPool *ring.Poly
+	polyRPool1 *ring.Poly
+	polyRPool2 *ring.Poly
+	polyRPool3 *ring.Poly
 }
 
 func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
@@ -34,7 +36,10 @@ func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
 
 	ks.polyQPool1 = params.RingQ().NewPoly()
 	ks.polyQPool2 = params.RingQ().NewPoly()
-	ks.polyRPool = params.RingR().NewPoly()
+
+	ks.polyRPool1 = params.RingR().NewPoly()
+	ks.polyRPool2 = params.RingR().NewPoly()
+	ks.polyRPool3 = params.RingR().NewPoly()
 
 	return
 }
@@ -44,7 +49,7 @@ func (ks *KeySwitcher) DecomposeBFV(levelQ int, a *ring.Poly, ad1, ad2 *mkrlwe.S
 	levelP := params.PCount() - 1
 	levelR := params.paramsRP.QCount() - 1
 	beta := params.Beta(levelQ)
-	polyR := ks.polyRPool
+	polyR := ks.polyRPool1
 
 	ks.conv.ModUpQtoR(a, polyR)
 	ks.kswRP.Decompose(levelR, polyR, ks.swkRPPool)
@@ -99,7 +104,7 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 
 	level := ctOut.Level()
 
-	if op0.Level() < level {
+	if op0.Level() < ctOut.Level() {
 		panic("Cannot MulAndRelin: op0 and op1 have different levels")
 	}
 
@@ -107,20 +112,25 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 		panic("Cannot MulAndRelin: op0 and ctOut have different levels")
 	}
 
-	params := ks.Parameters
+	params := ks.params
+	conv := ks.conv
 	ringQP := params.RingQP()
 	ringQ := params.RingQ()
+	ringR := params.RingR()
+
+	idset0 := op0.IDSet()
+	idset1 := op1.IDSet()
 
 	levelP := params.PCount() - 1
 	beta := params.Beta(level)
 
-	x1 := mkrlwe.NewSwitchingKey(params)
-	x2 := mkrlwe.NewSwitchingKey(params)
-	y1 := mkrlwe.NewSwitchingKey(params)
-	y2 := mkrlwe.NewSwitchingKey(params)
+	x1 := mkrlwe.NewSwitchingKey(params.Parameters)
+	x2 := mkrlwe.NewSwitchingKey(params.Parameters)
+	y1 := mkrlwe.NewSwitchingKey(params.Parameters)
+	y2 := mkrlwe.NewSwitchingKey(params.Parameters)
 
 	//gen x vector
-	for id := range op0.Value {
+	for id := range idset0.Value {
 		ks.DecomposeBFV(level, op0.Value[id], ks.swkPool1, ks.swkPool2)
 		d1 := rlkSet.Value[id].Value[0].Value[1]
 		d2 := rlkSet.Value[id].Value[1].Value[1]
@@ -136,7 +146,7 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 	}
 
 	//gen y vector
-	for id := range op1.Value {
+	for id := range idset1.Value {
 		ks.DecomposeBFV(level, op1.Value[id], ks.swkPool1, ks.swkPool2)
 		b1 := rlkSet.Value[id].Value[0].Value[0]
 		b2 := rlkSet.Value[id].Value[1].Value[0]
@@ -151,8 +161,40 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 		ringQP.MFormLvl(level, levelP, y2.Value[i], y2.Value[i])
 	}
 
+	//ctOut_0 <- op0_0 * op1_0
+	conv.ModUpQtoR(op0.Value["0"], ks.polyRPool1)
+	conv.ModUpQtoR(op1.Value["0"], ks.polyRPool2)
+	ringR.NTT(ks.polyRPool1, ks.polyRPool1)
+	ringR.NTT(ks.polyRPool2, ks.polyRPool2)
+
+	ringR.MForm(ks.polyRPool1, ks.polyRPool1)
+	ringR.MulCoeffsMontgomery(ks.polyRPool1, ks.polyRPool2, ks.polyRPool3)
+	conv.Quantize(ks.polyRPool3, ctOut.Value["0"], params.T())
+
+	//ctOut_j <- op0_0 * op1_j + op0_j * op1_0
+	ringR.MForm(ks.polyRPool2, ks.polyRPool2)
+	for id := range idset0.Value {
+		conv.ModUpQtoR(op0.Value[id], ks.polyRPool3)
+		ringR.NTT(ks.polyRPool3, ks.polyRPool3)
+		ringR.MulCoeffsMontgomery(ks.polyRPool2, ks.polyRPool3, ks.polyRPool3)
+		conv.Quantize(ks.polyRPool3, ctOut.Value[id], params.T())
+	}
+
+	for id := range idset1.Value {
+		conv.ModUpQtoR(op1.Value[id], ks.polyRPool3)
+		ringR.NTT(ks.polyRPool3, ks.polyRPool3)
+		if idset0.Has(id) {
+			ringR.MulCoeffsMontgomery(ks.polyRPool1, ks.polyRPool3, ks.polyRPool3)
+			conv.Quantize(ks.polyRPool3, ks.polyQPool1, params.T())
+			ringQ.Add(ks.polyQPool1, ctOut.Value[id], ctOut.Value[id])
+		} else {
+			ringR.MulCoeffsMontgomery(ks.polyRPool1, ks.polyRPool3, ks.polyRPool3)
+			conv.Quantize(ks.polyRPool3, ctOut.Value[id], params.T())
+		}
+	}
+
 	//ctOut_j <- ctOut_j +  Inter(op1_j, x)
-	for id := range op1.Value {
+	for id := range idset1.Value {
 		ks.InternalProductBFV(level, op1.Value[id], x1, x2, ks.polyQPool1)
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool1, ctOut.Value[id])
 	}
@@ -162,7 +204,7 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 
 	u := params.CRS[-1]
 
-	for id := range op0.Value {
+	for id := range idset0.Value {
 		v := rlkSet.Value[id].Value[0].Value[2]
 		ks.InternalProductBFV(level, op0.Value[id], y1, y2, ks.polyQPool1)
 
