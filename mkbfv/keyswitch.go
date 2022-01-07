@@ -33,11 +33,9 @@ func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
 	ks.swkPool2 = mkrlwe.NewSwitchingKey(params.Parameters)
 
 	ks.polyQPool1 = params.RingQ().NewPoly()
-	ks.polyQPool1.IsNTT = true
 	ks.polyQPool2 = params.RingQ().NewPoly()
-	ks.polyQPool2.IsNTT = true
 	ks.polyRPool = params.RingR().NewPoly()
-	ks.polyRPool.IsNTT = true
+
 	return
 }
 
@@ -64,6 +62,7 @@ func (ks *KeySwitcher) DecomposeBFV(levelQ int, a *ring.Poly, ad1, ad2 *mkrlwe.S
 	}
 }
 
+//output is in InvNTTForm
 func (ks *KeySwitcher) InternalProductBFV(levelQ int, a *ring.Poly, bg1, bg2 *mkrlwe.SwitchingKey, c *ring.Poly) {
 	params := ks.params
 	ringQ := params.RingQ()
@@ -88,15 +87,10 @@ func (ks *KeySwitcher) InternalProductBFV(levelQ int, a *ring.Poly, bg1, bg2 *mk
 		}
 	}
 
-	// rescale by P
-	if a.IsNTT {
-		ks.Baseconverter.ModDownQPtoQNTT(levelQ, levelP, c1QP.Q, c1QP.P, c)
-	} else {
-		ringQ.InvNTTLazyLvl(levelQ, c1QP.Q, c1QP.Q)
-		ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
+	ringQ.InvNTTLazyLvl(levelQ, c1QP.Q, c1QP.Q)
+	ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
 
-		ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
-	}
+	ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
 }
 
 // MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.

@@ -262,8 +262,9 @@ func TestMKBFV(t *testing.T) {
 			testEvaluatorAdd(testContext, userList[:numUsers], t)
 			testEvaluatorSub(testContext, userList[:numUsers], t)
 			testEvaluatorMul(testContext, userList[:numUsers], t)
-			testEvaluatorRot(testContext, userList[:numUsers], t)
-			testEvaluatorConj(testContext, userList[:numUsers], t)
+
+			//testEvaluatorRot(testContext, userList[:numUsers], t)
+			//testEvaluatorConj(testContext, userList[:numUsers], t)
 		}
 	}
 }

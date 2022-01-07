@@ -15,25 +15,15 @@ type KeySwitcher struct {
 // DecomposeSingleNTT takes the input polynomial c2 (c2NTT and c2InvNTT, respectively in the NTT and out of the NTT domain)
 // modulo q_alpha_beta, and returns the result on c2QiQ are c2QiP the receiver polynomials
 // respectively mod Q and mod P (in the NTT domain)
-func (ks *KeySwitcher) DecomposeSingleNTT(levelQ, levelP, alpha, beta, gamma int, c2NTT, c2InvNTT, c2QiQ, c2QiP *ring.Poly) {
+func (ks *KeySwitcher) DecomposeSingleNTT(levelQ, levelP, alpha, beta, gamma int, c2InvNTT, c2QiQ, c2QiP *ring.Poly) {
 
 	ringQ := ks.Parameters.RingQ()
 	ringP := ks.Parameters.RingP()
 
 	ks.Decomposer.DecomposeAndSplit(levelQ, levelP, alpha, beta, gamma, c2InvNTT, c2QiQ, c2QiP)
 
-	p0idxst := beta * (alpha)
-	p0idxed := p0idxst + 1
-
-	// c2_qi = cx mod qi mod qi
-	for x := 0; x < levelQ+1; x++ {
-		if p0idxst <= x && x < p0idxed {
-			copy(c2QiQ.Coeffs[x], c2NTT.Coeffs[x])
-		} else {
-			ring.NTT(c2QiQ.Coeffs[x], c2QiQ.Coeffs[x], ringQ.N, ringQ.NttPsi[x], ringQ.Modulus[x], ringQ.MredParams[x], ringQ.BredParams[x])
-		}
-	}
 	// c2QiP = c2 mod qi mod pj
+	ringQ.NTTLvl(levelQ, c2QiQ, c2QiQ)
 	ringP.NTTLvl(levelP, c2QiP, c2QiP)
 }
 
@@ -65,7 +55,8 @@ func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly, ad *SwitchingKey) {
 		aInvNTT = ks.PoolInvNTT
 		ringQ.InvNTTLvl(levelQ, aNTT, aInvNTT)
 	} else {
-		panic("Cannot InternalProduct: a should be in NTT")
+		aInvNTT = a
+		//panic("Cannot InternalProduct: a should be in NTT")
 	}
 
 	alpha := params.Alpha()
@@ -74,7 +65,7 @@ func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly, ad *SwitchingKey) {
 
 	// Key switching with CRT decomposition for the Qi
 	for i := 0; i < beta; i++ {
-		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, params.Gamma(), aNTT, aInvNTT, ad.Value[i].Q, ad.Value[i].P)
+		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, params.Gamma(), aInvNTT, ad.Value[i].Q, ad.Value[i].P)
 	}
 
 	return
@@ -89,13 +80,13 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 	ringP := params.RingP()
 	ringQP := params.RingQP()
 
-	var aNTT, aInvNTT *ring.Poly
+	var aInvNTT *ring.Poly
 	if a.IsNTT {
-		aNTT = a
 		aInvNTT = ks.PoolInvNTT
-		ringQ.InvNTTLvl(levelQ, aNTT, aInvNTT)
+		ringQ.InvNTTLvl(levelQ, a, aInvNTT)
 	} else {
-		panic("Cannot InternalProduct: a should be in NTT")
+		aInvNTT = a
+		//panic("Cannot InternalProduct: a should be in NTT")
 	}
 
 	alpha := params.Alpha()
@@ -107,7 +98,7 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 
 	// Key switching with CRT decomposition for the Qi
 	for i := 0; i < beta; i++ {
-		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, params.Gamma(), aNTT, aInvNTT, c0QP.Q, c0QP.P)
+		ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, params.Gamma(), aInvNTT, c0QP.Q, c0QP.P)
 
 		if i == 0 {
 			ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, bg.Value[i], c0QP, c1QP)

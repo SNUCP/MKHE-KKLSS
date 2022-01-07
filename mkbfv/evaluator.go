@@ -24,7 +24,7 @@ func NewEvaluator(params Parameters) *Evaluator {
 
 func (eval *Evaluator) newCiphertextBinary(op0, op1 *Ciphertext) (ctOut *Ciphertext) {
 	idset := op0.IDSet().Union(op1.IDSet())
-	return NewCiphertextNTT(eval.params, idset)
+	return NewCiphertext(eval.params, idset)
 }
 
 // evaluateInPlaceBinary applies the provided function in place on el0 and el1 and returns the result in elOut.
@@ -95,7 +95,7 @@ func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *RelinearizationKey
 
 	ct1Rescaled := ct1.CopyNew()
 	for id := range ct1.Value {
-		eval.conv.RescaleNTT(ct1.Value[id], ct1Rescaled.Value[id])
+		eval.conv.Rescale(ct1.Value[id], ct1Rescaled.Value[id])
 	}
 
 	eval.ksw.MulAndRelinBFV(ct0.Ciphertext, ct1Rescaled.Ciphertext, rlkSet, ctOut.Ciphertext)
