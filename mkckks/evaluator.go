@@ -384,7 +384,7 @@ func (eval *Evaluator) Rescale(ctIn *Ciphertext, minScale float64, ctOut *Cipher
 	if nbRescales > 0 {
 		level := ctIn.Level()
 		for i := range ctOut.Value {
-			ringQ.DivRoundByLastModulusManyNTTLvl(level, nbRescales, ctIn.Value[i], eval.polyQPool, ctOut.Value[i])
+			ringQ.DivRoundByLastModulusManyLvl(level, nbRescales, ctIn.Value[i], eval.polyQPool, ctOut.Value[i])
 			ctOut.Value[i].Coeffs = ctOut.Value[i].Coeffs[:level+1-nbRescales]
 		}
 	} else {

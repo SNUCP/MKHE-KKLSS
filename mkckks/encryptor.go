@@ -51,5 +51,6 @@ func (enc *Encryptor) EncryptMsgNew(msg *Message, pk *mkrlwe.PublicKey) (ctOut *
 	idset.Add(pk.ID)
 	ctOut = NewCiphertext(enc.params, idset, enc.params.MaxLevel(), enc.params.Scale())
 	enc.EncryptMsg(msg, pk, ctOut)
+
 	return
 }

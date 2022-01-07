@@ -92,13 +92,9 @@ var (
 
 func TestCKKS(t *testing.T) {
 
-	/*
-		defaultParams := ckks.DefaultParams                                          // the default test runs for ring degree N=2^12, 2^13, 2^14, 2^15
-		defaultParams = append(ckks.DefaultParams, ckks.DefaultPostQuantumParams...) // the long test suite runs for all default parameters
-	*/
-
 	defaultParams := []ckks.ParametersLiteral{PN15QP830, PN14QP438, PN13QP213}
 
+	//defaultParams := []ckks.ParametersLiteral{PN13QP213}
 	for _, defaultParam := range defaultParams {
 		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
 
@@ -125,13 +121,15 @@ func TestCKKS(t *testing.T) {
 			panic(err)
 		}
 
+		testEncAndDec(testContext, userList, t)
+
 		//testEvaluatorAdd(testContext, t)
 		//testEvaluatorSub(testContext, t)
 		//testEvaluatorRescale(testContext, t)
 
 		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
 			testEvaluatorMul(testContext, userList[:numUsers], t)
-			testEvaluatorRot(testContext, userList[:numUsers], t)
+			//testEvaluatorRot(testContext, userList[:numUsers], t)
 		}
 	}
 }
@@ -202,6 +200,33 @@ func newTestVectors(testContext *testParams, id string, a, b complex128) (msg *M
 	}
 
 	return msg, ciphertext
+}
+
+func testEncAndDec(testContext *testParams, userList []string, t *testing.T) {
+
+	params := testContext.params
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
+
+	skSet := testContext.skSet
+	dec := testContext.decryptor
+
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i], complex(-1, -1), complex(1, 1))
+	}
+
+	t.Run(GetTestName(testContext.params, "MKCKKSEncAndDec: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+
+		for i := range userList {
+			msgOut := dec.Decrypt(ctList[i], skSet)
+			for j := range msgList[i].Value {
+				delta := msgList[i].Value[j] - msgOut.Value[j]
+				require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+8, math.Log2(math.Abs(real(delta))))
+			}
+		}
+	})
+
 }
 
 // Returns the ceil(log2) of the sum of the absolute value of all the coefficients

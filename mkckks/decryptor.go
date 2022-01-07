@@ -19,6 +19,7 @@ func NewDecryptor(params Parameters) *Decryptor {
 	ret.encoder = ckks.NewEncoder(ckksParams)
 	ret.params = params
 	ret.ptxtPool = ckks.NewPlaintext(ckksParams, params.MaxLevel(), params.Scale())
+	ret.ptxtPool.Value.IsNTT = false
 	return ret
 }
 
@@ -31,7 +32,9 @@ func (dec *Decryptor) PartialDecrypt(ct *Ciphertext, sk *mkrlwe.SecretKey) {
 // The level of the output plaintext is min(ciphertext.Level(), plaintext.Level())
 // Output domain will match plaintext.Value.IsNTT value.
 func (dec *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *mkrlwe.SecretKeySet) (msg *Message) {
-	dec.Decryptor.Decrypt(ciphertext.Ciphertext, skSet, dec.ptxtPool.Plaintext)
+	ctTmp := ciphertext.CopyNew()
+
+	dec.Decryptor.Decrypt(ctTmp.Ciphertext, skSet, dec.ptxtPool.Plaintext)
 	msg = new(Message)
 	msg.Value = dec.encoder.Decode(dec.ptxtPool, dec.params.logSlots)
 

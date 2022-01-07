@@ -35,9 +35,9 @@ func NewKeySwitcher(params Parameters) *KeySwitcher {
 
 	ringQ := params.RingQ()
 	ks.polyQPool = [3]*ring.Poly{ringQ.NewPoly(), ringQ.NewPoly(), ringQ.NewPoly()}
-	ks.polyQPool[0].IsNTT = true
-	ks.polyQPool[1].IsNTT = true
-	ks.polyQPool[2].IsNTT = true
+	//ks.polyQPool[0].IsNTT = true
+	//ks.polyQPool[1].IsNTT = true
+	//ks.polyQPool[2].IsNTT = true
 
 	ks.swkPool = NewSwitchingKey(params)
 
@@ -108,14 +108,22 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 	}
 
 	// rescale by P
-	if a.IsNTT {
-		ks.Baseconverter.ModDownQPtoQNTT(levelQ, levelP, c1QP.Q, c1QP.P, c)
-	} else {
-		ringQ.InvNTTLazyLvl(levelQ, c1QP.Q, c1QP.Q)
-		ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
 
-		ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
-	}
+	ringQ.InvNTTLazyLvl(levelQ, c1QP.Q, c1QP.Q)
+	ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
+
+	ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
+
+	/*
+		  if a.IsNTT {
+				ks.Baseconverter.ModDownQPtoQNTT(levelQ, levelP, c1QP.Q, c1QP.P, c)
+			} else {
+				ringQ.InvNTTLazyLvl(levelQ, c1QP.Q, c1QP.Q)
+				ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
+
+				ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
+			}
+	*/
 }
 
 // MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
