@@ -44,15 +44,13 @@ func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
 	return
 }
 
-func (ks *KeySwitcher) DecomposeBFV(levelQ int, a *ring.Poly, ad1, ad2 *mkrlwe.SwitchingKey) {
+func (ks *KeySwitcher) DecomposeBFV(levelQ int, aR *ring.Poly, ad1, ad2 *mkrlwe.SwitchingKey) {
 	params := ks.params
 	levelP := params.PCount() - 1
 	levelR := params.paramsRP.QCount() - 1
 	beta := params.Beta(levelQ)
-	polyR := ks.polyRPool1
 
-	ks.conv.ModUpQtoR(a, polyR)
-	ks.kswRP.Decompose(levelR, polyR, ks.swkRPPool)
+	ks.kswRP.Decompose(levelR, aR, ks.swkRPPool)
 
 	for i := 0; i < beta; i++ {
 		for j := 0; j < levelQ+1; j++ {
@@ -68,7 +66,7 @@ func (ks *KeySwitcher) DecomposeBFV(levelQ int, a *ring.Poly, ad1, ad2 *mkrlwe.S
 }
 
 //output is in InvNTTForm
-func (ks *KeySwitcher) InternalProductBFV(levelQ int, a *ring.Poly, bg1, bg2 *mkrlwe.SwitchingKey, c *ring.Poly) {
+func (ks *KeySwitcher) InternalProductBFV(levelQ int, aR *ring.Poly, bg1, bg2 *mkrlwe.SwitchingKey, c *ring.Poly) {
 	params := ks.params
 	ringQ := params.RingQ()
 	ringP := params.RingP()
@@ -79,7 +77,7 @@ func (ks *KeySwitcher) InternalProductBFV(levelQ int, a *ring.Poly, bg1, bg2 *mk
 
 	c1QP := ks.Pool[1]
 
-	ks.DecomposeBFV(levelQ, a, ks.swkPool1, ks.swkPool2)
+	ks.DecomposeBFV(levelQ, aR, ks.swkPool1, ks.swkPool2)
 
 	// Key switching with CRT decomposition for the Qi
 	for i := 0; i < beta; i++ {
@@ -162,10 +160,8 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 	}
 
 	//ctOut_0 <- op0_0 * op1_0
-	conv.ModUpQtoR(op0.Value["0"], ks.polyRPool1)
-	conv.ModUpQtoR(op1.Value["0"], ks.polyRPool2)
-	ringR.NTT(ks.polyRPool1, ks.polyRPool1)
-	ringR.NTT(ks.polyRPool2, ks.polyRPool2)
+	ringR.NTT(op0.Value["0"], ks.polyRPool1)
+	ringR.NTT(op1.Value["0"], ks.polyRPool2)
 
 	ringR.MForm(ks.polyRPool1, ks.polyRPool1)
 	ringR.MulCoeffsMontgomery(ks.polyRPool1, ks.polyRPool2, ks.polyRPool3)
@@ -174,15 +170,13 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 	//ctOut_j <- op0_0 * op1_j + op0_j * op1_0
 	ringR.MForm(ks.polyRPool2, ks.polyRPool2)
 	for id := range idset0.Value {
-		conv.ModUpQtoR(op0.Value[id], ks.polyRPool3)
-		ringR.NTT(ks.polyRPool3, ks.polyRPool3)
+		ringR.NTT(op0.Value[id], ks.polyRPool3)
 		ringR.MulCoeffsMontgomery(ks.polyRPool2, ks.polyRPool3, ks.polyRPool3)
 		conv.Quantize(ks.polyRPool3, ctOut.Value[id], params.T())
 	}
 
 	for id := range idset1.Value {
-		conv.ModUpQtoR(op1.Value[id], ks.polyRPool3)
-		ringR.NTT(ks.polyRPool3, ks.polyRPool3)
+		ringR.NTT(op1.Value[id], ks.polyRPool3)
 		if idset0.Has(id) {
 			ringR.MulCoeffsMontgomery(ks.polyRPool1, ks.polyRPool3, ks.polyRPool3)
 			conv.Quantize(ks.polyRPool3, ks.polyQPool1, params.T())

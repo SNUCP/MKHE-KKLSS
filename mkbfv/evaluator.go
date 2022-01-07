@@ -93,12 +93,20 @@ func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *Relinearization
 // The procedure will panic if the evaluator was not created with an relinearization key.
 func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
 
-	ct1Rescaled := ct1.CopyNew()
-	for id := range ct1.Value {
-		eval.conv.Rescale(ct1.Value[id], ct1Rescaled.Value[id])
+	params := eval.params
+
+	ct0R := mkrlwe.NewCiphertext(params.paramsRP, ct0.IDSet(), params.paramsRP.MaxLevel())
+	ct1R := mkrlwe.NewCiphertext(params.paramsRP, ct0.IDSet(), params.paramsRP.MaxLevel())
+
+	for id := range ct0.Value {
+		eval.conv.ModUpQtoR(ct0.Value[id], ct0R.Value[id])
 	}
 
-	eval.ksw.MulAndRelinBFV(ct0.Ciphertext, ct1Rescaled.Ciphertext, rlkSet, ctOut.Ciphertext)
+	for id := range ct1.Value {
+		eval.conv.Rescale(ct1.Value[id], ct1R.Value[id])
+	}
+
+	eval.ksw.MulAndRelinBFV(ct0R, ct1R, rlkSet, ctOut.Ciphertext)
 }
 
 // RotateNew rotates the columns of ct0 by k positions to the left, and returns the result in a newly created element.

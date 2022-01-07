@@ -80,7 +80,7 @@ func (conv *FastBasisExtender) Quantize(polyR, polyQ *ring.Poly, t uint64) {
 }
 
 // assume input polyQ is in InvNTTForm
-func (conv *FastBasisExtender) Rescale(polyQ *ring.Poly, polyQOut *ring.Poly) {
+func (conv *FastBasisExtender) Rescale(polyQ *ring.Poly, polyR *ring.Poly) {
 
 	levelQ := len(conv.ringQ.Modulus) - 1
 	levelQMul := levelQ
@@ -88,5 +88,10 @@ func (conv *FastBasisExtender) Rescale(polyQ *ring.Poly, polyQOut *ring.Poly) {
 	conv.ringQ.MulCoeffsMontgomery(polyQ, conv.mFormQMul, conv.polypoolQ)
 	conv.ringQMul.MulScalar(conv.polypoolQMul, 0, conv.polypoolQMul)
 	conv.convQQMul.ModDownQPtoP(levelQ, levelQMul, conv.polypoolQ, conv.polypoolQMul, conv.polypoolQMul)
-	conv.convQQMul.ModUpPtoQ(levelQMul, levelQ, conv.polypoolQMul, polyQOut)
+	conv.convQQMul.ModUpPtoQ(levelQMul, levelQ, conv.polypoolQMul, conv.polypoolQ)
+
+	for i := 0; i < levelQ+1; i++ {
+		copy(polyR.Coeffs[i], conv.polypoolQ.Coeffs[i])
+		copy(polyR.Coeffs[i+levelQ+1], conv.polypoolQMul.Coeffs[i])
+	}
 }
