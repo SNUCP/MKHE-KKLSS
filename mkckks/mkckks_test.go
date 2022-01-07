@@ -93,8 +93,8 @@ var (
 func TestCKKS(t *testing.T) {
 
 	defaultParams := []ckks.ParametersLiteral{PN15QP830, PN14QP438, PN13QP213}
-
 	//defaultParams := []ckks.ParametersLiteral{PN13QP213}
+
 	for _, defaultParam := range defaultParams {
 		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
 
@@ -129,7 +129,8 @@ func TestCKKS(t *testing.T) {
 
 		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
 			testEvaluatorMul(testContext, userList[:numUsers], t)
-			//testEvaluatorRot(testContext, userList[:numUsers], t)
+			testEvaluatorRot(testContext, userList[:numUsers], t)
+			testEvaluatorConj(testContext, userList[:numUsers], t)
 		}
 	}
 }

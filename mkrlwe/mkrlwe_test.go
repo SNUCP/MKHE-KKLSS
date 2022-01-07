@@ -84,8 +84,6 @@ func TestMKRLWE(t *testing.T) {
 		testDecompose(kgen, t)
 		testInternalProduct(kgen, t)
 		testHadamardProduct(kgen, t)
-		testRelinearize(kgen, t)
-
 	}
 
 }
@@ -485,6 +483,8 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		ciphertext := NewCiphertextNTT(params, users, plaintext.Level())
 		encryptor.Encrypt(plaintext, pk, ciphertext)
 
+		level := ciphertext.Level()
+
 		//generate sg
 		sg := NewSwitchingKey(params)
 		kgen.GenSwitchingKey(sk, sg)
@@ -493,10 +493,11 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		ks := NewKeySwitcher(params)
 		tmp := ringQ.NewPolyLvl(ciphertext.Level())
 		ks.InternalProduct(ciphertext.Level(), ciphertext.Value["0"], sg, tmp)
+		ringQ.NTTLvl(level, tmp, tmp)
 
 		//tmp2 = c*s
 		ringQ.MulCoeffsMontgomeryAndSubLvl(ciphertext.Level(), ciphertext.Value["0"], sk.Value.Q, tmp)
-		ringQ.InvNTTLvl(ciphertext.Level(), tmp, tmp)
+		ringQ.InvNTTLvl(level, tmp, tmp)
 
 		//check errors
 		require.GreaterOrEqual(t, 10+params.LogN(), log2OfInnerSum(tmp.Level(), params.RingQ(), tmp))
@@ -608,84 +609,6 @@ func testDecompose(kgen *KeyGenerator, t *testing.T) {
 	})
 }
 
-func testRelinearize(kgen *KeyGenerator, t *testing.T) {
-
-	// Checks that internal product works properly
-	// 1) generate two pk (-as+e, a)
-	// 2) generate sg
-	// 3) check Interal(-as+e, sg) similar to -as^2
-
-	params := kgen.params
-
-	t.Run(testString(params, "RelinMaxLevel/"), func(t *testing.T) {
-
-		if params.PCount() == 0 {
-			t.Skip()
-		}
-
-		ringQ := params.RingQ()
-		levelQ := params.QCount() - 1
-
-		level := levelQ
-
-		pt := rlwe.NewPlaintext(params.Parameters, level)
-		pt.Value.IsNTT = true
-
-		user1 := "user1"
-		user2 := "user2"
-		idset1 := NewIDSet()
-		idset2 := NewIDSet()
-
-		idset1.Add(user1)
-		idset2.Add(user2)
-		idset := idset1.Union(idset2)
-
-		sk1, pk1 := kgen.GenKeyPair(user1)
-		r1 := kgen.GenSecretKey(user1)
-		rlk1 := kgen.GenRelinearizationKey(sk1, r1)
-
-		sk2, pk2 := kgen.GenKeyPair(user2)
-		r2 := kgen.GenSecretKey(user2)
-		rlk2 := kgen.GenRelinearizationKey(sk2, r2)
-
-		skSet := NewSecretKeySet()
-		skSet.AddSecretKey(sk1)
-		skSet.AddSecretKey(sk2)
-
-		rlkSet := NewRelinearizationKeyKeySet()
-		rlkSet.AddRelinearizationKey(kgen.GenConstRelinearizationKey())
-		rlkSet.AddRelinearizationKey(rlk1)
-		rlkSet.AddRelinearizationKey(rlk2)
-
-		enc := NewEncryptor(params)
-		dec := NewDecryptor(params)
-
-		ct1 := NewCiphertextNTT(params, idset1, level)
-		ct2 := NewCiphertextNTT(params, idset2, level)
-
-		enc.Encrypt(pt, pk1, ct1)
-		enc.Encrypt(pt, pk2, ct2)
-
-		ct3 := NewCiphertextNTT(params, idset, level)
-		ks := NewKeySwitcher(params)
-		ks.MulAndRelin(ct1, ct2, rlkSet, ct3)
-
-		dec.Decrypt(ct1, skSet, pt)
-		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
-		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
-
-		dec.Decrypt(ct2, skSet, pt)
-		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
-		require.GreaterOrEqual(t, 9+params.LogN(), log2OfInnerSum(level, ringQ, pt.Value))
-
-		dec.Decrypt(ct3, skSet, pt)
-		ringQ.InvNTTLvl(level, pt.Value, pt.Value)
-		require.GreaterOrEqual(t, 2*(9+params.LogN()), log2OfInnerSum(level, ringQ, pt.Value))
-
-	})
-
-}
-
 func testHadamardProduct(kgen *KeyGenerator, t *testing.T) {
 
 	// Checks that internal product works properly
@@ -740,6 +663,7 @@ func testHadamardProduct(kgen *KeyGenerator, t *testing.T) {
 		tmp := ringQ.NewPolyLvl(level)
 		tmp.IsNTT = true
 		ks.InternalProduct(level, ct.Value["0"], sg, tmp)
+		ringQ.NTTLvl(level, tmp, tmp)
 
 		//tmp2 = c*s
 		tmp2 := ringQ.NewPolyLvl(level)

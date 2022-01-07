@@ -240,8 +240,10 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 }
 
 func TestMKBFV(t *testing.T) {
+
 	//defaultParams := []ParametersLiteral{PN13QP220}
 	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
+
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
@@ -262,9 +264,8 @@ func TestMKBFV(t *testing.T) {
 			testEvaluatorAdd(testContext, userList[:numUsers], t)
 			testEvaluatorSub(testContext, userList[:numUsers], t)
 			testEvaluatorMul(testContext, userList[:numUsers], t)
-
-			//testEvaluatorRot(testContext, userList[:numUsers], t)
-			//testEvaluatorConj(testContext, userList[:numUsers], t)
+			testEvaluatorRot(testContext, userList[:numUsers], t)
+			testEvaluatorConj(testContext, userList[:numUsers], t)
 		}
 	}
 }

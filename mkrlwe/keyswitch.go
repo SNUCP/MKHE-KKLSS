@@ -35,9 +35,6 @@ func NewKeySwitcher(params Parameters) *KeySwitcher {
 
 	ringQ := params.RingQ()
 	ks.polyQPool = [3]*ring.Poly{ringQ.NewPoly(), ringQ.NewPoly(), ringQ.NewPoly()}
-	//ks.polyQPool[0].IsNTT = true
-	//ks.polyQPool[1].IsNTT = true
-	//ks.polyQPool[2].IsNTT = true
 
 	ks.swkPool = NewSwitchingKey(params)
 
@@ -56,7 +53,6 @@ func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly, ad *SwitchingKey) {
 		ringQ.InvNTTLvl(levelQ, aNTT, aInvNTT)
 	} else {
 		aInvNTT = a
-		//panic("Cannot InternalProduct: a should be in NTT")
 	}
 
 	alpha := params.Alpha()
@@ -74,6 +70,7 @@ func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly, ad *SwitchingKey) {
 // InternalProduct applies internal product of input poly a & bg
 // the expected result is ab
 // we assume one of a and bg is in MForm
+// we assume output is in InvNTT form
 func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKey, c *ring.Poly) {
 	params := ks.Parameters
 	ringQ := params.RingQ()
@@ -113,17 +110,6 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 	ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
 
 	ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
-
-	/*
-		  if a.IsNTT {
-				ks.Baseconverter.ModDownQPtoQNTT(levelQ, levelP, c1QP.Q, c1QP.P, c)
-			} else {
-				ringQ.InvNTTLazyLvl(levelQ, c1QP.Q, c1QP.Q)
-				ringP.InvNTTLazyLvl(levelP, c1QP.P, c1QP.P)
-
-				ks.Baseconverter.ModDownQPtoQ(levelQ, levelP, c1QP.Q, c1QP.P, c)
-			}
-	*/
 }
 
 // MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
@@ -201,13 +187,12 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 }
 
 // Rotate rotates ctIn with ctOut with RotationKeySet and returns the result in ctOut.
-// Input ciphertext should be in NTT form
+// Input ciphertext should be in InvNTT form
 func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySet, ctOut *Ciphertext) {
 	level := ctOut.Level()
 	idset := ctIn.IDSet()
 	params := ks.Parameters
 	ringQ := params.RingQ()
-	galEl := params.GaloisElementForColumnRotationBy(rotidx)
 
 	// check ctIn level
 	if ctIn.Level() < level {
@@ -219,10 +204,11 @@ func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySe
 		rotidx += (params.N() / 2)
 	}
 
+	galEl := params.GaloisElementForColumnRotationBy(rotidx)
+
 	// permute ctIn and put it to ctOut
-	index := ring.PermuteNTTIndex(galEl, uint64(params.N()))
 	for id := range ctIn.Value {
-		ring.PermuteNTTWithIndexLvl(level, ctIn.Value[id], index, ctOut.Value[id])
+		ringQ.Permute(ctIn.Value[id], galEl, ctOut.Value[id])
 	}
 
 	// c0 <- c0 + IP(c_i, rk_i)
@@ -255,9 +241,8 @@ func (ks *KeySwitcher) Conjugate(ctIn *Ciphertext, ckSet *ConjugationKeySet, ctO
 	}
 
 	// permute ctIn and put it to ctOut
-	index := ring.PermuteNTTIndex(galEl, uint64(params.N()))
 	for id := range ctIn.Value {
-		ring.PermuteNTTWithIndexLvl(level, ctIn.Value[id], index, ctOut.Value[id])
+		ringQ.Permute(ctIn.Value[id], galEl, ctOut.Value[id])
 	}
 
 	// c0 <- c0 + IP(c_i, rk_i)

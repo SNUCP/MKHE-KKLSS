@@ -104,7 +104,7 @@ func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *RelinearizationKey
 // RotateNew rotates the columns of ct0 by k positions to the left, and returns the result in a newly created element.
 // If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
 func (eval *Evaluator) RotateNew(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.RotationKeySet) (ctOut *Ciphertext) {
-	ctOut = NewCiphertextNTT(eval.params, ct0.IDSet())
+	ctOut = NewCiphertext(eval.params, ct0.IDSet())
 	eval.rotate(ct0, rotidx, rkSet, ctOut)
 	return
 }
@@ -147,7 +147,7 @@ func (eval *Evaluator) rotate(ct0 *Ciphertext, rotidx int, rkSet *mkrlwe.Rotatio
 // created element. If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key
 // for the row rotation needs to be provided.
 func (eval *Evaluator) ConjugateNew(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySet) (ctOut *Ciphertext) {
-	ctOut = NewCiphertextNTT(eval.params, ct0.IDSet())
+	ctOut = NewCiphertext(eval.params, ct0.IDSet())
 	eval.conjugate(ct0, ckSet, ctOut)
 	return
 }
