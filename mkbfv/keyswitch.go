@@ -47,10 +47,14 @@ func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
 func (ks *KeySwitcher) DecomposeBFV(levelQ int, aR *ring.Poly, ad1, ad2 *mkrlwe.SwitchingKey) {
 	params := ks.params
 	levelP := params.PCount() - 1
-	levelR := params.paramsRP.QCount() - 1
 	beta := params.Beta(levelQ)
+	alpha := params.Alpha()
 
-	ks.kswRP.Decompose(levelR, aR, ks.swkRPPool)
+	// Key switching with CRT decomposition for the Qi
+	for i := 0; i < 2*beta; i++ {
+		ks.kswRP.DecomposeSingleNTT(levelQ, levelP, alpha, i, params.Gamma(),
+			aR, ks.swkRPPool.Value[i].Q, ks.swkRPPool.Value[i].P)
+	}
 
 	for i := 0; i < beta; i++ {
 		for j := 0; j < levelQ+1; j++ {

@@ -40,6 +40,9 @@ func BenchmarkMKCKKS(b *testing.B) {
 
 		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
 			benchMulAndRelin(testContext, userList[:numUsers], b)
+		}
+
+		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
 			benchRotate(testContext, userList[:numUsers], b)
 		}
 
