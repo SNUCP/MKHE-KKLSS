@@ -93,16 +93,18 @@ func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *Relinearization
 // The procedure will panic if the evaluator was not created with an relinearization key.
 func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
 
-	params := eval.params
-
-	ct0R := mkrlwe.NewCiphertext(params.paramsRP, ct0.IDSet(), params.paramsRP.MaxLevel())
-	ct1R := mkrlwe.NewCiphertext(params.paramsRP, ct0.IDSet(), params.paramsRP.MaxLevel())
+	ct0R := new(mkrlwe.Ciphertext)
+	ct0R.Value = make(map[string]*ring.Poly)
+	ct1R := new(mkrlwe.Ciphertext)
+	ct1R.Value = make(map[string]*ring.Poly)
 
 	for id := range ct0.Value {
+		ct0R.Value[id] = rlkSet.PolyRPool1[id]
 		eval.conv.ModUpQtoR(ct0.Value[id], ct0R.Value[id])
 	}
 
 	for id := range ct1.Value {
+		ct1R.Value[id] = rlkSet.PolyRPool2[id]
 		eval.conv.Rescale(ct1.Value[id], ct1R.Value[id])
 	}
 

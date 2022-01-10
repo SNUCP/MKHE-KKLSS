@@ -20,6 +20,7 @@ type KeySwitcher struct {
 	polyRPool1 *ring.Poly
 	polyRPool2 *ring.Poly
 	polyRPool3 *ring.Poly
+	polyRPool4 *ring.Poly
 }
 
 func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
@@ -40,6 +41,7 @@ func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
 	ks.polyRPool1 = params.RingR().NewPoly()
 	ks.polyRPool2 = params.RingR().NewPoly()
 	ks.polyRPool3 = params.RingR().NewPoly()
+	ks.polyRPool4 = params.RingR().NewPoly()
 
 	return
 }
@@ -126,10 +128,25 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 	levelP := params.PCount() - 1
 	beta := params.Beta(level)
 
-	x1 := mkrlwe.NewSwitchingKey(params.Parameters)
-	x2 := mkrlwe.NewSwitchingKey(params.Parameters)
-	y1 := mkrlwe.NewSwitchingKey(params.Parameters)
-	y2 := mkrlwe.NewSwitchingKey(params.Parameters)
+	x1 := rlkSet.SwkPool1
+	x2 := rlkSet.SwkPool2
+	y1 := rlkSet.SwkPool3
+	y2 := rlkSet.SwkPool4
+
+	//initialize x1, x2, y1, y2
+	for i := 0; i < beta; i++ {
+		x1.Value[i].Q.Zero()
+		x1.Value[i].P.Zero()
+
+		y1.Value[i].Q.Zero()
+		y1.Value[i].P.Zero()
+
+		x2.Value[i].Q.Zero()
+		x2.Value[i].P.Zero()
+
+		y2.Value[i].Q.Zero()
+		y2.Value[i].P.Zero()
+	}
 
 	//gen x vector
 	for id := range idset0.Value {
@@ -173,20 +190,31 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 
 	//ctOut_j <- op0_0 * op1_j + op0_j * op1_0
 	ringR.MForm(ks.polyRPool2, ks.polyRPool2)
+
 	for id := range idset0.Value {
-		ringR.NTT(op0.Value[id], ks.polyRPool3)
-		ringR.MulCoeffsMontgomery(ks.polyRPool2, ks.polyRPool3, ks.polyRPool3)
-		conv.Quantize(ks.polyRPool3, ctOut.Value[id], params.T())
+		if !idset1.Has(id) {
+			ringR.NTT(op0.Value[id], ks.polyRPool3)
+			ringR.MulCoeffsMontgomery(ks.polyRPool2, ks.polyRPool3, ks.polyRPool3)
+			conv.Quantize(ks.polyRPool3, ctOut.Value[id], params.T())
+		}
 	}
 
 	for id := range idset1.Value {
-		ringR.NTT(op1.Value[id], ks.polyRPool3)
+		if !idset0.Has(id) {
+			ringR.NTT(op1.Value[id], ks.polyRPool3)
+			ringR.MulCoeffsMontgomery(ks.polyRPool1, ks.polyRPool3, ks.polyRPool3)
+			conv.Quantize(ks.polyRPool3, ctOut.Value[id], params.T())
+		}
+	}
+
+	for id := range idset1.Value {
 		if idset0.Has(id) {
+			ringR.NTT(op1.Value[id], ks.polyRPool3)
 			ringR.MulCoeffsMontgomery(ks.polyRPool1, ks.polyRPool3, ks.polyRPool3)
-			conv.Quantize(ks.polyRPool3, ks.polyQPool1, params.T())
-			ringQ.Add(ks.polyQPool1, ctOut.Value[id], ctOut.Value[id])
-		} else {
-			ringR.MulCoeffsMontgomery(ks.polyRPool1, ks.polyRPool3, ks.polyRPool3)
+
+			ringR.NTT(op0.Value[id], ks.polyRPool4)
+			ringR.MulCoeffsMontgomeryAndAdd(ks.polyRPool2, ks.polyRPool4, ks.polyRPool3)
+
 			conv.Quantize(ks.polyRPool3, ctOut.Value[id], params.T())
 		}
 	}

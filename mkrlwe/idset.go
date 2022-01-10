@@ -38,6 +38,17 @@ func (s *IDSet) CopyNew() *IDSet {
 	return res
 }
 
+func (s *IDSet) Intersection(s2 *IDSet) *IDSet {
+	res := NewIDSet()
+	for v := range s2.Value {
+		if s.Has(v) {
+			res.Add(v)
+		}
+	}
+
+	return res
+}
+
 func (s *IDSet) Union(s2 *IDSet) *IDSet {
 	res := NewIDSet()
 	for v := range s.Value {

@@ -1,6 +1,7 @@
 package mkbfv
 
 import "mk-lattigo/mkrlwe"
+import "github.com/ldsec/lattigo/v2/ring"
 
 type RelinearizationKey struct {
 	Value [2]*mkrlwe.RelinearizationKey
@@ -10,6 +11,16 @@ type RelinearizationKey struct {
 // RelinearizationKeySet is a type for a set of multikey BFV relinearization keys.
 type RelinearizationKeySet struct {
 	Value map[string]*RelinearizationKey
+
+	SwkPool1 *mkrlwe.SwitchingKey
+	SwkPool2 *mkrlwe.SwitchingKey
+	SwkPool3 *mkrlwe.SwitchingKey
+	SwkPool4 *mkrlwe.SwitchingKey
+
+	PolyRPool1 map[string]*ring.Poly
+	PolyRPool2 map[string]*ring.Poly
+
+	params Parameters
 }
 
 // NewRelinearizationKey returns a new RelinearizationKey with zero values.
@@ -24,15 +35,30 @@ func NewRelinearizationKey(params Parameters, id string) *RelinearizationKey {
 }
 
 // NewRelinearizationKeySet returns a new empty RelinearizationKeySet
-func NewRelinearizationKeyKeySet() *RelinearizationKeySet {
+func NewRelinearizationKeyKeySet(params Parameters) *RelinearizationKeySet {
 	rlkSet := new(RelinearizationKeySet)
 	rlkSet.Value = make(map[string]*RelinearizationKey)
+	rlkSet.params = params
+
+	rlkSet.SwkPool1 = mkrlwe.NewSwitchingKey(params.Parameters)
+	rlkSet.SwkPool2 = mkrlwe.NewSwitchingKey(params.Parameters)
+	rlkSet.SwkPool3 = mkrlwe.NewSwitchingKey(params.Parameters)
+	rlkSet.SwkPool4 = mkrlwe.NewSwitchingKey(params.Parameters)
+
+	rlkSet.PolyRPool1 = make(map[string]*ring.Poly)
+	rlkSet.PolyRPool2 = make(map[string]*ring.Poly)
+
+	rlkSet.PolyRPool1["0"] = params.RingR().NewPoly()
+	rlkSet.PolyRPool2["0"] = params.RingR().NewPoly()
+
 	return rlkSet
 }
 
 // AddRelinearizationKey insert new publickey into RelinearizationKeySet with its id
 func (rlkSet *RelinearizationKeySet) AddRelinearizationKey(rlk *RelinearizationKey) {
 	rlkSet.Value[rlk.ID] = rlk
+	rlkSet.PolyRPool1[rlk.ID] = rlkSet.params.RingR().NewPoly()
+	rlkSet.PolyRPool2[rlk.ID] = rlkSet.params.RingR().NewPoly()
 }
 
 // DelRelinearizationKey delete publickey of given id from SecretKeySet
