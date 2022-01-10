@@ -14,43 +14,73 @@ import "math/big"
 import "math/bits"
 
 func GetTestName(params Parameters, opname string) string {
-	return fmt.Sprintf("%slogN=%d/logQP=%d/logRP=%d/",
+	return fmt.Sprintf("%slogN=%d/logQP=%d/levels=%d",
 		opname,
 		params.LogN(),
 		params.LogQP(),
-		params.paramsRP.LogQP(),
+		params.MaxLevel(),
 	)
 }
 
-var PN15QP873 = ParametersLiteral{
+var PN15QP877 = ParametersLiteral{
 	LogN: 15,
 
 	Q: []uint64{
-		// 12 x 45
-		0x2000000a0001, 0x2000000e0001, 0x1fffffc20001,
-		0x200000440001, 0x200000500001, 0x200000620001,
-		0x1fffff980001, 0x2000006a0001, 0x1fffff7e0001,
-		0x200000860001, 0x200000a60001, 0x200000aa0001,
+		// 14 * 48
+
+		0x10000001a0001,
+		0x10000001e0001,
+		0x1000000320001,
+		0x1000000380001,
+
+		0x10000004d0001,
+		0x1000000500001,
+		0x1000000570001,
+		0x1000000690001,
+
+		0x10000006b0001,
+		0x1000000720001,
+		0x1000000ba0001,
+		0x1000000c00001,
+
+		0x1000000cf0001,
+		0x1000000d70001,
 	},
 
 	QMul: []uint64{
-		// 12 x 45
-		0x200000b20001, 0x200000c80001, 0x1fffff360001,
-		0x200000e20001, 0x1fffff060001, 0x200000fe0001,
-		0x1ffffede0001, 0x1ffffeca0001, 0x1ffffeb40001,
-		0x200001520001, 0x1ffffe760001, 0x2000019a0001,
+		// 14 * 48
+
+		0x1000000e00001,
+		0x1000000e30001,
+		0x1000000ef0001,
+		0x1000000f50001,
+
+		0x1000000f90001,
+		0x1000001140001,
+		0x10000011a0001,
+		0x10000011d0001,
+
+		0x1000001230001,
+		0x1000001350001,
+		0x1000001380001,
+		0x1000001440001,
+
+		0x1000001470001,
+		0x1000001550001,
 	},
 
 	P: []uint64{
-		// 6 x 55
-		0x80000000080001, 0x80000000130001, 0x80000000190001,
-		0x800000001d0001, 0x80000000440001, 0x80000000490001,
+		// 4 x 51
+		0x8000000110001,
+		0x8000000130001,
+		0x80000001c0001,
+		0x80000002c0001,
 	},
 	T:     65537,
 	Sigma: rlwe.DefaultSigma,
 }
 
-var PN14QP435 = ParametersLiteral{
+var PN14QP441 = ParametersLiteral{
 	LogN: 14,
 
 	Q: []uint64{
@@ -79,34 +109,6 @@ var PN14QP435 = ParametersLiteral{
 		0x40000001b0001,
 		0x4000000270001,
 		0x4000000350001,
-	},
-	T:     65537,
-	Sigma: rlwe.DefaultSigma,
-}
-
-var PN13QP220 = ParametersLiteral{
-	LogN: 13,
-
-	Q: []uint64{
-		// 4 x 35
-		0x8000f8001,
-		0x800260001,
-		0x8002a8001,
-		0x800398001,
-	},
-
-	QMul: []uint64{
-		// 4 x 35
-		0x800008001,
-		0x800250001,
-		0x800280001,
-		0x8002f0001,
-	},
-
-	P: []uint64{
-		// 40 x 2
-		0x10000290001,
-		0x10000470001,
 	},
 	T:     65537,
 	Sigma: rlwe.DefaultSigma,
@@ -239,8 +241,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 func TestMKBFV(t *testing.T) {
 
-	//defaultParams := []ParametersLiteral{PN13QP220}
-	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
+	defaultParams := []ParametersLiteral{PN14QP441, PN15QP877}
 
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)

@@ -52,48 +52,66 @@ type testParams struct {
 }
 
 var (
-	PN15QP830 = ckks.ParametersLiteral{
+	PN15QP878 = ckks.ParametersLiteral{
 		LogN:     15,
 		LogSlots: 14,
-		Q: []uint64{0x4000000120001, 0x10000140001, 0xffffe80001, // 50 + 15 x 40
-			0x10000290001, 0xffffc40001, 0x100003e0001,
-			0x10000470001, 0x100004b0001, 0xffffb20001,
-			0x10000500001, 0x10000650001, 0xffff940001,
-			0xffff8a0001, 0xffff820001, 0xffff780001,
-			0x10000890001},
-		P:     []uint64{0x200000440001, 0x200000500001, 0x200000620001, 0x1fffff980001}, // 4 x 45
-		Scale: 1 << 40,
+		//56 + 13*46
+		Q: []uint64{
+			0x100000000060001,
+
+			0x400000060001,
+			0x400000080001,
+			0x4000000c0001,
+			0x400000180001,
+			0x400000290001,
+			0x400000420001,
+			0x3ffffff70001,
+			0x3fffffe50001,
+			0x3fffffcc0001,
+			0x3fffffc70001,
+			0x3fffffb20001,
+			0x3fffffa80001,
+			0x3fffff960001,
+		},
+		P: []uint64{
+			//56 * 4
+			0x1000000002a0001,
+			0x100000000450001,
+			0x100000000480001,
+			0x1000000005f0001,
+		},
+		Scale: 1 << 46,
 		Sigma: rlwe.DefaultSigma,
 	}
 	// PN14QP438 is a default parameter set for logN=14 and logQP=438
-	PN14QP438 = ckks.ParametersLiteral{
+	PN14QP441 = ckks.ParametersLiteral{
 		LogN:     14,
 		LogSlots: 13,
-		Q: []uint64{0x200000008001, 0x400018001, // 45 + 9 x 34
-			0x3fffd0001, 0x400060001,
-			0x400068001, 0x3fff90001,
-			0x400080001, 0x4000a8001,
-			0x400108001, 0x3ffeb8001},
-		P:     []uint64{0x7fffffd8001, 0x7fffffc8001}, // 43, 43
-		Scale: 1 << 34,
-		Sigma: rlwe.DefaultSigma,
-	}
+		Q: []uint64{
+			// 49 + 5*39
+			0x20000000b0001,
 
-	// PN13QP218 is a default parameter set for logN=13 and logQP=213
-	PN13QP213 = ckks.ParametersLiteral{
-		LogN:     13,
-		LogSlots: 12,
-		Q:        []uint64{0x10000048001, 0x200038001, 0x1fff90001, 0x200080001}, // 40 + 3*33
-		P:        []uint64{0x1ffffe0001, 0x1ffffc0001},                           // 37, 37
-		Scale:    1 << 33,
-		Sigma:    rlwe.DefaultSigma,
+			0x80001d0001,
+			0x8000410001,
+			0x8000430001,
+			0x7ffffb0001,
+			0x7fffe60001,
+		},
+		P: []uint64{
+			//49*4
+			0x20000001a0001,
+			0x20000003b0001,
+			0x20000005e0001,
+			0x20000006d0001,
+		},
+		Scale: 1 << 39,
+		Sigma: rlwe.DefaultSigma,
 	}
 )
 
 func TestCKKS(t *testing.T) {
 
-	defaultParams := []ckks.ParametersLiteral{PN15QP830, PN14QP438, PN13QP213}
-	//defaultParams := []ckks.ParametersLiteral{PN13QP213}
+	defaultParams := []ckks.ParametersLiteral{PN15QP878, PN14QP441}
 
 	for _, defaultParam := range defaultParams {
 		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
@@ -122,10 +140,6 @@ func TestCKKS(t *testing.T) {
 		}
 
 		testEncAndDec(testContext, userList, t)
-
-		//testEvaluatorAdd(testContext, t)
-		//testEvaluatorSub(testContext, t)
-		//testEvaluatorRescale(testContext, t)
 
 		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
 			testEvaluatorMul(testContext, userList[:numUsers], t)

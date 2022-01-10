@@ -9,7 +9,7 @@ import (
 
 func BenchmarkMKBFV(b *testing.B) {
 
-	defaultParams := []ParametersLiteral{PN13QP220, PN14QP435, PN15QP873}
+	defaultParams := []ParametersLiteral{PN14QP441, PN15QP877}
 
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
