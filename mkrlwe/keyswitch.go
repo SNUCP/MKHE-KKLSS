@@ -9,7 +9,9 @@ type KeySwitcher struct {
 	Parameters
 	Decomposer *Decomposer
 	polyQPool  [3]*ring.Poly
-	swkPool    *SwitchingKey
+	swkPool1   *SwitchingKey
+	swkPool2   *SwitchingKey
+	swkPool3   *SwitchingKey
 }
 
 // DecomposeSingleNTT takes the input polynomial c2 (c2NTT and c2InvNTT, respectively in the NTT and out of the NTT domain)
@@ -36,7 +38,9 @@ func NewKeySwitcher(params Parameters) *KeySwitcher {
 	ringQ := params.RingQ()
 	ks.polyQPool = [3]*ring.Poly{ringQ.NewPoly(), ringQ.NewPoly(), ringQ.NewPoly()}
 
-	ks.swkPool = NewSwitchingKey(params)
+	ks.swkPool1 = NewSwitchingKey(params)
+	ks.swkPool2 = NewSwitchingKey(params)
+	ks.swkPool3 = NewSwitchingKey(params)
 
 	return ks
 }
@@ -136,15 +140,24 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 	levelP := params.PCount() - 1
 	beta := params.Beta(level)
 
-	x := NewSwitchingKey(params)
-	y := NewSwitchingKey(params)
+	x := ks.swkPool1
+	y := ks.swkPool2
+
+	//initialize x1, x2, y1, y2
+	for i := 0; i < beta; i++ {
+		x.Value[i].Q.Zero()
+		x.Value[i].P.Zero()
+
+		y.Value[i].Q.Zero()
+		y.Value[i].P.Zero()
+	}
 
 	//gen x vector
 	for id := range idset0.Value {
-		ks.Decompose(level, op0.Value[id], ks.swkPool)
+		ks.Decompose(level, op0.Value[id], ks.swkPool3)
 		d := rlkSet.Value[id].Value[1]
 		for i := 0; i < beta; i++ {
-			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, d.Value[i], ks.swkPool.Value[i], x.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, d.Value[i], ks.swkPool3.Value[i], x.Value[i])
 		}
 	}
 
@@ -154,10 +167,10 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 
 	//gen y vector
 	for id := range idset1.Value {
-		ks.Decompose(level, op1.Value[id], ks.swkPool)
+		ks.Decompose(level, op1.Value[id], ks.swkPool3)
 		b := rlkSet.Value[id].Value[0]
 		for i := 0; i < beta; i++ {
-			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, b.Value[i], ks.swkPool.Value[i], y.Value[i])
+			ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, b.Value[i], ks.swkPool3.Value[i], y.Value[i])
 		}
 	}
 

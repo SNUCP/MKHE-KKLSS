@@ -13,6 +13,10 @@ type KeySwitcher struct {
 
 	swkPool1 *mkrlwe.SwitchingKey
 	swkPool2 *mkrlwe.SwitchingKey
+	swkPool3 *mkrlwe.SwitchingKey
+	swkPool4 *mkrlwe.SwitchingKey
+	swkPool5 *mkrlwe.SwitchingKey
+	swkPool6 *mkrlwe.SwitchingKey
 
 	polyQPool1 *ring.Poly
 	polyQPool2 *ring.Poly
@@ -34,6 +38,10 @@ func NewKeySwitcher(params Parameters) (ks *KeySwitcher) {
 
 	ks.swkPool1 = mkrlwe.NewSwitchingKey(params.Parameters)
 	ks.swkPool2 = mkrlwe.NewSwitchingKey(params.Parameters)
+	ks.swkPool3 = mkrlwe.NewSwitchingKey(params.Parameters)
+	ks.swkPool4 = mkrlwe.NewSwitchingKey(params.Parameters)
+	ks.swkPool5 = mkrlwe.NewSwitchingKey(params.Parameters)
+	ks.swkPool6 = mkrlwe.NewSwitchingKey(params.Parameters)
 
 	ks.polyQPool1 = params.RingQ().NewPoly()
 	ks.polyQPool2 = params.RingQ().NewPoly()
@@ -128,10 +136,10 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 	levelP := params.PCount() - 1
 	beta := params.Beta(level)
 
-	x1 := rlkSet.SwkPool1
-	x2 := rlkSet.SwkPool2
-	y1 := rlkSet.SwkPool3
-	y2 := rlkSet.SwkPool4
+	x1 := ks.swkPool3
+	x2 := ks.swkPool4
+	y1 := ks.swkPool5
+	y2 := ks.swkPool6
 
 	//initialize x1, x2, y1, y2
 	for i := 0; i < beta; i++ {

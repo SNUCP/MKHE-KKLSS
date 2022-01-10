@@ -12,11 +12,6 @@ type RelinearizationKey struct {
 type RelinearizationKeySet struct {
 	Value map[string]*RelinearizationKey
 
-	SwkPool1 *mkrlwe.SwitchingKey
-	SwkPool2 *mkrlwe.SwitchingKey
-	SwkPool3 *mkrlwe.SwitchingKey
-	SwkPool4 *mkrlwe.SwitchingKey
-
 	PolyRPool1 map[string]*ring.Poly
 	PolyRPool2 map[string]*ring.Poly
 
@@ -39,11 +34,6 @@ func NewRelinearizationKeyKeySet(params Parameters) *RelinearizationKeySet {
 	rlkSet := new(RelinearizationKeySet)
 	rlkSet.Value = make(map[string]*RelinearizationKey)
 	rlkSet.params = params
-
-	rlkSet.SwkPool1 = mkrlwe.NewSwitchingKey(params.Parameters)
-	rlkSet.SwkPool2 = mkrlwe.NewSwitchingKey(params.Parameters)
-	rlkSet.SwkPool3 = mkrlwe.NewSwitchingKey(params.Parameters)
-	rlkSet.SwkPool4 = mkrlwe.NewSwitchingKey(params.Parameters)
 
 	rlkSet.PolyRPool1 = make(map[string]*ring.Poly)
 	rlkSet.PolyRPool2 = make(map[string]*ring.Poly)
