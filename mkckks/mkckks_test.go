@@ -18,11 +18,7 @@ import (
 	"math/cmplx"
 )
 
-var flagLongTest = flag.Bool("long", false, "run the long test suite (all parameters + secure bootstrapping). Overrides -short and requires -timeout=0.")
-var flagParamString = flag.String("params", "", "specify the test cryptographic parameters as a JSON string. Overrides -short and -long.")
-var printPrecisionStats = flag.Bool("print-precision", false, "print precision stats")
-
-var minPrec float64 = 15.0
+var maxUsers = flag.Int("n", 4, "maximum number of parties")
 
 func GetTestName(params Parameters, opname string) string {
 	return fmt.Sprintf("%slogN=%d/LogSlots=%d/logQP=%d/levels=%d/",
@@ -52,66 +48,51 @@ type testParams struct {
 }
 
 var (
-	PN15QP878 = ckks.ParametersLiteral{
+	PN15QP880 = ckks.ParametersLiteral{
 		LogN:     15,
 		LogSlots: 14,
-		//56 + 13*46
+		//60 + 13x54
 		Q: []uint64{
-			0x100000000060001,
+			0xfffffffff6a0001,
 
-			0x400000060001,
-			0x400000080001,
-			0x4000000c0001,
-			0x400000180001,
-			0x400000290001,
-			0x400000420001,
-			0x3ffffff70001,
-			0x3fffffe50001,
-			0x3fffffcc0001,
-			0x3fffffc70001,
-			0x3fffffb20001,
-			0x3fffffa80001,
-			0x3fffff960001,
+			0x3fffffffd60001, 0x3fffffffca0001,
+			0x3fffffff6d0001, 0x3fffffff5d0001,
+			0x3fffffff550001, 0x3fffffff390001,
+			0x3fffffff360001, 0x3fffffff2a0001,
+			0x3fffffff000001, 0x3ffffffefa0001,
+			0x3ffffffef40001, 0x3ffffffed70001,
+			0x3ffffffed30001,
 		},
 		P: []uint64{
-			//56 * 4
-			0x1000000002a0001,
-			0x100000000450001,
-			0x100000000480001,
-			0x1000000005f0001,
+			//59 x 2
+			0x7ffffffffe70001, 0x7ffffffffe10001,
 		},
-		Scale: 1 << 46,
+		Scale: 1 << 54,
 		Sigma: rlwe.DefaultSigma,
 	}
-	// PN14QP438 is a default parameter set for logN=14 and logQP=438
-	PN14QP441 = ckks.ParametersLiteral{
+	PN14QP439 = ckks.ParametersLiteral{
 		LogN:     14,
 		LogSlots: 13,
 		Q: []uint64{
-			// 49 + 5*39
-			0x20000000b0001,
+			// 59 + 5x52
+			0x7ffffffffe70001,
 
-			0x80001d0001,
-			0x8000410001,
-			0x8000430001,
-			0x7ffffb0001,
-			0x7fffe60001,
+			0xffffffff00001, 0xfffffffe40001,
+			0xfffffffe20001, 0xfffffffbe0001,
+			0xfffffffa60001,
 		},
 		P: []uint64{
-			//49*4
-			0x20000001a0001,
-			0x20000003b0001,
-			0x20000005e0001,
-			0x20000006d0001,
+			// 60 x 2
+			0xffffffffffc0001, 0xfffffffff840001,
 		},
-		Scale: 1 << 39,
+		Scale: 1 << 52,
 		Sigma: rlwe.DefaultSigma,
 	}
 )
 
 func TestCKKS(t *testing.T) {
 
-	defaultParams := []ckks.ParametersLiteral{PN15QP878, PN14QP441}
+	defaultParams := []ckks.ParametersLiteral{PN15QP880, PN14QP439}
 
 	for _, defaultParam := range defaultParams {
 		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
@@ -125,8 +106,7 @@ func TestCKKS(t *testing.T) {
 		}
 
 		params := NewParameters(ckksParams)
-		maxUsers := 4
-		userList := make([]string, maxUsers)
+		userList := make([]string, *maxUsers)
 		idset := mkrlwe.NewIDSet()
 
 		for i := range userList {
@@ -141,7 +121,7 @@ func TestCKKS(t *testing.T) {
 
 		testEncAndDec(testContext, userList, t)
 
-		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
+		for numUsers := 2; numUsers <= *maxUsers; numUsers *= 2 {
 			testEvaluatorMul(testContext, userList[:numUsers], t)
 			testEvaluatorRot(testContext, userList[:numUsers], t)
 			testEvaluatorConj(testContext, userList[:numUsers], t)
@@ -371,8 +351,8 @@ func testEvaluatorMul(testContext *testParams, userList []string, t *testing.T) 
 
 		for i := range msgRes.Value {
 			delta := msgRes.Value[i] - msg.Value[i]
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(real(delta))))
-			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(imag(delta))))
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+12, math.Log2(math.Abs(real(delta))))
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+12, math.Log2(math.Abs(imag(delta))))
 		}
 	})
 

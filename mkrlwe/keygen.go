@@ -56,7 +56,7 @@ func (keygen *KeyGenerator) genSecretKeyFromSampler(sampler ring.Sampler, id str
 
 // GenSecretKey generates a new SecretKey with the distribution [1/3, 1/3, 1/3].
 func (keygen *KeyGenerator) GenSecretKey(id string) (sk *SecretKey) {
-	return keygen.GenSecretKeyWithDistrib(1.0/3, id)
+	return keygen.GenSecretKeyWithDistrib(1.0/2, id)
 }
 
 // GenSecretKey generates a new SecretKey with the error distribution.

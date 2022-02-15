@@ -9,13 +9,12 @@ import (
 
 func BenchmarkMKBFV(b *testing.B) {
 
-	defaultParams := []ParametersLiteral{PN14QP441, PN15QP877}
+	defaultParams := []ParametersLiteral{PN14QP439, PN15QP880}
 
 	for _, defaultParam := range defaultParams {
 		params := NewParametersFromLiteral(defaultParam)
 
-		maxUsers := 64
-		userList := make([]string, maxUsers)
+		userList := make([]string, *maxUsers)
 		idset := mkrlwe.NewIDSet()
 
 		for i := range userList {
@@ -25,13 +24,15 @@ func BenchmarkMKBFV(b *testing.B) {
 
 		testContext, _ := genTestParams(params, idset)
 
-		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
+		for numUsers := 2; numUsers <= *maxUsers; numUsers *= 2 {
 			benchMulAndRelin(testContext, userList[:numUsers], b)
 		}
 
-		for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
-			benchRotate(testContext, userList[:numUsers], b)
-		}
+		/*
+			for numUsers := 2; numUsers <= maxUsers; numUsers *= 2 {
+				benchRotate(testContext, userList[:numUsers], b)
+			}
+		*/
 	}
 }
 
