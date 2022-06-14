@@ -2,6 +2,7 @@ package mkrlwe
 
 import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/ring"
+import "math/bits"
 
 // KeySwitcher is a struct for RLWE key-switching.
 type KeySwitcher struct {
@@ -251,7 +252,32 @@ func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySe
 
 	// permute ctIn and put it to ctOut
 	for id := range ctIn.Value {
-		ringQ.Permute(ctIn.Value[id], galEl, ctOut.Value[id])
+		//ringQ.Permute(ctIn.Value[id], galEl, ctOut.Value[id])
+
+		var mask, index, indexRaw, logN, tmp uint64
+
+		mask = uint64(ringQ.N - 1)
+
+		logN = uint64(bits.Len64(mask))
+
+		for i := uint64(0); i < uint64(ringQ.N); i++ {
+
+			indexRaw = i * galEl
+
+			index = indexRaw & mask
+
+			tmp = (indexRaw >> logN) & 1
+
+			for j, qi := range ringQ.Modulus {
+
+				if j > ctIn.Level() {
+					break
+				}
+
+				ctOut.Value[id].Coeffs[j][index] = ctIn.Value[id].Coeffs[j][i]*(tmp^1) | (qi-ctIn.Value[id].Coeffs[j][i])*tmp
+			}
+		}
+
 	}
 
 	// c0 <- c0 + IP(c_i, rk_i)
