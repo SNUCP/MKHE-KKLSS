@@ -497,13 +497,13 @@ func (eval *Evaluator) conjugate(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySe
 }
 
 // HoistedForm computes hoisted form of input ciphertext
-func (eval *Evaluator) HoistedForm(ct *Ciphertext) (ctHoisted map[string]*mkrlwe.SwitchingKey) {
+func (eval *Evaluator) HoistedForm(ct *Ciphertext) (ctHoisted *mkrlwe.HoistedCiphertext) {
 	idset := ct.IDSet()
-	ctHoisted = make(map[string]*mkrlwe.SwitchingKey)
+	ctHoisted = mkrlwe.NewHoistedCiphertext()
 
 	for id := range idset.Value {
-		ctHoisted[id] = mkrlwe.NewSwitchingKey(eval.params.Parameters)
-		eval.ksw.Decompose(ct.Level(), ct.Value[id], ctHoisted[id])
+		ctHoisted.Value[id] = mkrlwe.NewSwitchingKey(eval.params.Parameters)
+		eval.ksw.Decompose(ct.Level(), ct.Value[id], ctHoisted.Value[id])
 	}
 
 	return
@@ -512,7 +512,7 @@ func (eval *Evaluator) HoistedForm(ct *Ciphertext) (ctHoisted map[string]*mkrlwe
 // MulRelinNew multiplies ct0 by ct1 with relinearization and returns the result in a newly created element.
 // The procedure will panic if either op0.Degree or op1.Degree > 1.
 // The procedure will panic if the evaluator was not created with an relinearization key.
-func (eval *Evaluator) MulRelinHoistedNew(op0, op1 *Ciphertext, op0Hoisted, op1Hoisted map[string]*mkrlwe.SwitchingKey, rlkSet *mkrlwe.RelinearizationKeySet) (ctOut *Ciphertext) {
+func (eval *Evaluator) MulRelinHoistedNew(op0, op1 *Ciphertext, op0Hoisted, op1Hoisted *mkrlwe.HoistedCiphertext, rlkSet *mkrlwe.RelinearizationKeySet) (ctOut *Ciphertext) {
 	//ctOut = NewCiphertext(eval.params, op0.IDSet().Union(op1.IDSet()), utils.MinInt(op0.Level(), op1.Level()), 0)
 	ctOut = eval.newCiphertextBinary(op0, op1)
 	ctOut.Scale = 0
@@ -524,7 +524,7 @@ func (eval *Evaluator) MulRelinHoistedNew(op0, op1 *Ciphertext, op0Hoisted, op1H
 // The procedure will panic if either op0.Degree or op1.Degree > 1.
 // The procedure will panic if ctOut.Degree != op0.Degree + op1.Degree.
 // The procedure will panic if the evaluator was not created with an relinearization key.
-func (eval *Evaluator) mulRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1Hoisted map[string]*mkrlwe.SwitchingKey, rlkSet *mkrlwe.RelinearizationKeySet, ctOut *Ciphertext) {
+func (eval *Evaluator) mulRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1Hoisted *mkrlwe.HoistedCiphertext, rlkSet *mkrlwe.RelinearizationKeySet, ctOut *Ciphertext) {
 
 	level := utils.MinInt(utils.MinInt(op0.Level(), op1.Level()), ctOut.Level())
 
@@ -539,7 +539,7 @@ func (eval *Evaluator) mulRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1Hois
 
 // RotateNew rotates the columns of ct0 by k positions to the left, and returns the result in a newly created element.
 // If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
-func (eval *Evaluator) RotateHoistedNew(ct0 *Ciphertext, rotidx int, ct0Hoisted map[string]*mkrlwe.SwitchingKey, rkSet *mkrlwe.RotationKeySet) (ctOut *Ciphertext) {
+func (eval *Evaluator) RotateHoistedNew(ct0 *Ciphertext, rotidx int, ct0Hoisted *mkrlwe.HoistedCiphertext, rkSet *mkrlwe.RotationKeySet) (ctOut *Ciphertext) {
 	ctOut = NewCiphertext(eval.params, ct0.IDSet(), ct0.Level(), ct0.Scale)
 	eval.rotateHoisted(ct0, rotidx, ct0Hoisted, rkSet, ctOut)
 	return
@@ -547,7 +547,7 @@ func (eval *Evaluator) RotateHoistedNew(ct0 *Ciphertext, rotidx int, ct0Hoisted 
 
 // Rotate rotates the columns of ct0 by k positions to the left and returns the result in ctOut.
 // If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
-func (eval *Evaluator) rotateHoisted(ct0 *Ciphertext, rotidx int, ct0Hoisted map[string]*mkrlwe.SwitchingKey, rkSet *mkrlwe.RotationKeySet, ctOut *Ciphertext) {
+func (eval *Evaluator) rotateHoisted(ct0 *Ciphertext, rotidx int, ct0Hoisted *mkrlwe.HoistedCiphertext, rkSet *mkrlwe.RotationKeySet, ctOut *Ciphertext) {
 
 	// normalize rotidx
 	for rotidx >= eval.params.N()/2 {

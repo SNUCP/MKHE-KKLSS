@@ -2,6 +2,18 @@ package mkrlwe
 
 import "github.com/ldsec/lattigo/v2/ring"
 
+type HoistedCiphertext struct {
+	Value map[string]*SwitchingKey
+}
+
+func NewHoistedCiphertext() *HoistedCiphertext {
+	ctHoisted := new(HoistedCiphertext)
+
+	ctHoisted.Value = make(map[string]*SwitchingKey)
+
+	return ctHoisted
+}
+
 type Ciphertext struct {
 	Value map[string]*ring.Poly
 }

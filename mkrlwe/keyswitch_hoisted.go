@@ -42,7 +42,7 @@ func (ks *KeySwitcher) ExternalProductHoisted(levelQ int, aHoisted []rlwe.PolyQP
 
 // MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
 // Input ciphertext should be in NTT form
-func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1Hoisted map[string]*SwitchingKey, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
+func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1Hoisted *HoistedCiphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
 
 	level := ctOut.Level()
 
@@ -87,7 +87,7 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		} else {
 			d := rlkSet.Value[id].Value[1]
 			for i := 0; i < beta; i++ {
-				ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, d.Value[i], op0Hoisted[id].Value[i], x.Value[i])
+				ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, d.Value[i], op0Hoisted.Value[id].Value[i], x.Value[i])
 			}
 		}
 	}
@@ -107,7 +107,7 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		} else {
 			b := rlkSet.Value[id].Value[0]
 			for i := 0; i < beta; i++ {
-				ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, b.Value[i], op1Hoisted[id].Value[i], y.Value[i])
+				ringQP.MulCoeffsMontgomeryAndAddLvl(level, levelP, b.Value[i], op1Hoisted.Value[id].Value[i], y.Value[i])
 			}
 		}
 
@@ -149,7 +149,7 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		if op1Hoisted == nil {
 			ks.ExternalProduct(level, op1.Value[id], x, ks.polyQPool[0])
 		} else {
-			ks.ExternalProductHoisted(level, op1Hoisted[id].Value, x, ks.polyQPool[0])
+			ks.ExternalProductHoisted(level, op1Hoisted.Value[id].Value, x, ks.polyQPool[0])
 		}
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[0], ctOut.Value[id])
 	}
@@ -166,7 +166,7 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		if op0Hoisted == nil {
 			ks.ExternalProduct(level, op0.Value[id], y, ks.polyQPool[0])
 		} else {
-			ks.ExternalProductHoisted(level, op0Hoisted[id].Value, y, ks.polyQPool[0])
+			ks.ExternalProductHoisted(level, op0Hoisted.Value[id].Value, y, ks.polyQPool[0])
 		}
 
 		ks.Decompose(level, ks.polyQPool[0], ks.swkPool3)
@@ -181,7 +181,7 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 
 // Rotate rotates ctIn with ctOut with RotationKeySet and returns the result in ctOut.
 // Input ciphertext should be in InvNTT form
-func (ks *KeySwitcher) RotateHoisted(ctIn *Ciphertext, rotidx int, ctInHoisted map[string]*SwitchingKey, rkSet *RotationKeySet, ctOut *Ciphertext) {
+func (ks *KeySwitcher) RotateHoisted(ctIn *Ciphertext, rotidx int, ctInHoisted *HoistedCiphertext, rkSet *RotationKeySet, ctOut *Ciphertext) {
 
 	level := ctOut.Level()
 	idset := ctIn.IDSet()
@@ -207,10 +207,10 @@ func (ks *KeySwitcher) RotateHoisted(ctIn *Ciphertext, rotidx int, ctInHoisted m
 
 	for id := range idset.Value {
 		rk := rkSet.GetRotationKey(id, uint(rotidx))
-		ks.ExternalProductHoisted(level, ctInHoisted[id].Value, rk.Value, ks.polyQPool[0])
+		ks.ExternalProductHoisted(level, ctInHoisted.Value[id].Value, rk.Value, ks.polyQPool[0])
 		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
 
-		ks.ExternalProductHoisted(level, ctInHoisted[id].Value, a, ctOut.Value[id])
+		ks.ExternalProductHoisted(level, ctInHoisted.Value[id].Value, a, ctOut.Value[id])
 	}
 
 	// permute ctOut
