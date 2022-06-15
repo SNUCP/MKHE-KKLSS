@@ -82,7 +82,7 @@ func TestMKRLWE(t *testing.T) {
 		testDecryptor(kgen, t)
 
 		testDecompose(kgen, t)
-		testInternalProduct(kgen, t)
+		testExternalProduct(kgen, t)
 		testHadamardProduct(kgen, t)
 	}
 
@@ -453,7 +453,7 @@ func testDecryptor(kgen *KeyGenerator, t *testing.T) {
 
 }
 
-func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
+func testExternalProduct(kgen *KeyGenerator, t *testing.T) {
 
 	// Checks that internal product works properly
 	// 1) generate two pk (-as+e, a)
@@ -462,7 +462,7 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 
 	params := kgen.params
 
-	t.Run(testString(params, "InternalProductMaxLevel/"), func(t *testing.T) {
+	t.Run(testString(params, "ExternalProductMaxLevel/"), func(t *testing.T) {
 
 		if params.PCount() == 0 {
 			t.Skip()
@@ -492,7 +492,7 @@ func testInternalProduct(kgen *KeyGenerator, t *testing.T) {
 		//tmp = P*s
 		ks := NewKeySwitcher(params)
 		tmp := ringQ.NewPolyLvl(ciphertext.Level())
-		ks.InternalProduct(ciphertext.Level(), ciphertext.Value["0"], sg, tmp)
+		ks.ExternalProduct(ciphertext.Level(), ciphertext.Value["0"], sg, tmp)
 		ringQ.NTTLvl(level, tmp, tmp)
 
 		//tmp2 = c*s
@@ -662,7 +662,7 @@ func testHadamardProduct(kgen *KeyGenerator, t *testing.T) {
 		//tmp = Inter(c, csg)
 		tmp := ringQ.NewPolyLvl(level)
 		tmp.IsNTT = true
-		ks.InternalProduct(level, ct.Value["0"], sg, tmp)
+		ks.ExternalProduct(level, ct.Value["0"], sg, tmp)
 		ringQ.NTTLvl(level, tmp, tmp)
 
 		//tmp2 = c*s

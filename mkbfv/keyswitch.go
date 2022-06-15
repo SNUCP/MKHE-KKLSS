@@ -80,7 +80,7 @@ func (ks *KeySwitcher) DecomposeBFV(levelQ int, aR *ring.Poly, ad1, ad2 *mkrlwe.
 }
 
 //output is in InvNTTForm
-func (ks *KeySwitcher) InternalProductBFV(levelQ int, aR *ring.Poly, bg1, bg2 *mkrlwe.SwitchingKey, c *ring.Poly) {
+func (ks *KeySwitcher) ExternalProductBFV(levelQ int, aR *ring.Poly, bg1, bg2 *mkrlwe.SwitchingKey, c *ring.Poly) {
 	params := ks.params
 	ringQ := params.RingQ()
 	ringP := params.RingP()
@@ -229,7 +229,7 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 
 	//ctOut_j <- ctOut_j +  Inter(op1_j, x)
 	for id := range idset1.Value {
-		ks.InternalProductBFV(level, op1.Value[id], x1, x2, ks.polyQPool1)
+		ks.ExternalProductBFV(level, op1.Value[id], x1, x2, ks.polyQPool1)
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool1, ctOut.Value[id])
 	}
 
@@ -240,12 +240,12 @@ func (ks *KeySwitcher) MulAndRelinBFV(op0, op1 *mkrlwe.Ciphertext, rlkSet *Relin
 
 	for id := range idset0.Value {
 		v := rlkSet.Value[id].Value[0].Value[2]
-		ks.InternalProductBFV(level, op0.Value[id], y1, y2, ks.polyQPool1)
+		ks.ExternalProductBFV(level, op0.Value[id], y1, y2, ks.polyQPool1)
 
-		ks.InternalProduct(level, ks.polyQPool1, v, ks.polyQPool2)
+		ks.ExternalProduct(level, ks.polyQPool1, v, ks.polyQPool2)
 		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool2, ctOut.Value["0"])
 
-		ks.InternalProduct(level, ks.polyQPool1, u, ks.polyQPool2)
+		ks.ExternalProduct(level, ks.polyQPool1, u, ks.polyQPool2)
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool2, ctOut.Value[id])
 	}
 }

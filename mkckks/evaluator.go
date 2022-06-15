@@ -495,3 +495,44 @@ func (eval *Evaluator) ConjugateNew(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKe
 func (eval *Evaluator) conjugate(ct0 *Ciphertext, ckSet *mkrlwe.ConjugationKeySet, ctOut *Ciphertext) {
 	eval.ksw.Conjugate(ct0.Ciphertext, ckSet, ctOut.Ciphertext)
 }
+
+// HoistedForm computes hoisted form of input ciphertext
+func (eval *Evaluator) HoistedForm(ct *Ciphertext) (ctHoisted map[string]*mkrlwe.SwitchingKey) {
+	idset := ct.IDSet()
+	ctHoisted = make(map[string]*mkrlwe.SwitchingKey)
+
+	for id := range idset.Value {
+		ctHoisted[id] = mkrlwe.NewSwitchingKey(eval.params.Parameters)
+		eval.ksw.Decompose(ct.Level(), ct.Value[id], ctHoisted[id])
+	}
+
+	return
+}
+
+// MulRelinNew multiplies ct0 by ct1 with relinearization and returns the result in a newly created element.
+// The procedure will panic if either op0.Degree or op1.Degree > 1.
+// The procedure will panic if the evaluator was not created with an relinearization key.
+func (eval *Evaluator) MulRelinHoistedNew(op0, op1 *Ciphertext, op0Hoisted, op1Hoisted map[string]*mkrlwe.SwitchingKey, rlkSet *mkrlwe.RelinearizationKeySet) (ctOut *Ciphertext) {
+	//ctOut = NewCiphertext(eval.params, op0.IDSet().Union(op1.IDSet()), utils.MinInt(op0.Level(), op1.Level()), 0)
+	ctOut = eval.newCiphertextBinary(op0, op1)
+	ctOut.Scale = 0
+	eval.mulRelinHoisted(op0, op1, op0Hoisted, op1Hoisted, rlkSet, ctOut)
+	return
+}
+
+// MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
+// The procedure will panic if either op0.Degree or op1.Degree > 1.
+// The procedure will panic if ctOut.Degree != op0.Degree + op1.Degree.
+// The procedure will panic if the evaluator was not created with an relinearization key.
+func (eval *Evaluator) mulRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1Hoisted map[string]*mkrlwe.SwitchingKey, rlkSet *mkrlwe.RelinearizationKeySet, ctOut *Ciphertext) {
+
+	level := utils.MinInt(utils.MinInt(op0.Level(), op1.Level()), ctOut.Level())
+
+	if ctOut.Level() > level {
+		eval.DropLevel(ctOut, ctOut.Level()-level)
+	}
+
+	ctOut.Scale = op0.ScalingFactor() * op1.ScalingFactor()
+	eval.ksw.MulAndRelinHoisted(op0.Ciphertext, op1.Ciphertext, op0Hoisted, op1Hoisted, rlkSet, ctOut.Ciphertext)
+	eval.Rescale(ctOut, eval.params.Scale(), ctOut)
+}

@@ -72,11 +72,11 @@ func (ks *KeySwitcher) Decompose(levelQ int, a *ring.Poly, ad *SwitchingKey) {
 	return
 }
 
-// InternalProduct applies internal product of input poly a & bg
+// ExternalProduct applies internal product of input poly a & bg
 // the expected result is ab
 // we assume one of a and bg is in MForm
 // we assume output is in InvNTT form
-func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKey, c *ring.Poly) {
+func (ks *KeySwitcher) ExternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKey, c *ring.Poly) {
 	params := ks.Parameters
 	ringQ := params.RingQ()
 	ringP := params.RingP()
@@ -88,7 +88,7 @@ func (ks *KeySwitcher) InternalProduct(levelQ int, a *ring.Poly, bg *SwitchingKe
 		ringQ.InvNTTLvl(levelQ, a, aInvNTT)
 	} else {
 		aInvNTT = a
-		//panic("Cannot InternalProduct: a should be in NTT")
+		//panic("Cannot ExternalProduct: a should be in NTT")
 	}
 
 	alpha := params.Alpha()
@@ -208,7 +208,7 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 
 	//ctOut_j <- ctOut_j +  Inter(op1_j, x)
 	for id := range idset1.Value {
-		ks.InternalProduct(level, op1.Value[id], x, ks.polyQPool[0])
+		ks.ExternalProduct(level, op1.Value[id], x, ks.polyQPool[0])
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[0], ctOut.Value[id])
 	}
 
@@ -219,15 +219,14 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 
 	for id := range idset0.Value {
 		v := rlkSet.Value[id].Value[2]
-		ks.InternalProduct(level, op0.Value[id], y, ks.polyQPool[0])
+		ks.ExternalProduct(level, op0.Value[id], y, ks.polyQPool[0])
 
-		ks.InternalProduct(level, ks.polyQPool[0], v, ks.polyQPool[1])
+		ks.ExternalProduct(level, ks.polyQPool[0], v, ks.polyQPool[1])
 		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[1], ctOut.Value["0"])
 
-		ks.InternalProduct(level, ks.polyQPool[0], u, ks.polyQPool[2])
+		ks.ExternalProduct(level, ks.polyQPool[0], u, ks.polyQPool[2])
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[2], ctOut.Value[id])
 	}
-
 }
 
 // Rotate rotates ctIn with ctOut with RotationKeySet and returns the result in ctOut.
@@ -283,14 +282,14 @@ func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySe
 	// c0 <- c0 + IP(c_i, rk_i)
 	for id := range idset.Value {
 		rk := rkSet.GetRotationKey(id, uint(rotidx))
-		ks.InternalProduct(level, ctOut.Value[id], rk.Value, ks.polyQPool[0])
+		ks.ExternalProduct(level, ctOut.Value[id], rk.Value, ks.polyQPool[0])
 		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
 	}
 
 	// c_i <- IP(c_i, a)
 	a := params.CRS[rotidx]
 	for id := range idset.Value {
-		ks.InternalProduct(level, ctOut.Value[id], a, ks.polyQPool[0])
+		ks.ExternalProduct(level, ctOut.Value[id], a, ks.polyQPool[0])
 		ctOut.Value[id].Copy(ks.polyQPool[0])
 	}
 }
@@ -317,14 +316,14 @@ func (ks *KeySwitcher) Conjugate(ctIn *Ciphertext, ckSet *ConjugationKeySet, ctO
 	// c0 <- c0 + IP(c_i, rk_i)
 	for id := range idset.Value {
 		ck := ckSet.GetConjugationKey(id)
-		ks.InternalProduct(level, ctOut.Value[id], ck.Value, ks.polyQPool[0])
+		ks.ExternalProduct(level, ctOut.Value[id], ck.Value, ks.polyQPool[0])
 		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
 	}
 
 	// c_i <- IP(c_i, a)
 	a := params.CRS[-2]
 	for id := range idset.Value {
-		ks.InternalProduct(level, ctOut.Value[id], a, ks.polyQPool[0])
+		ks.ExternalProduct(level, ctOut.Value[id], a, ks.polyQPool[0])
 		ctOut.Value[id].Copy(ks.polyQPool[0])
 	}
 }
