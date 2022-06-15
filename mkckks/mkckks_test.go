@@ -125,6 +125,7 @@ func TestCKKS(t *testing.T) {
 			testEvaluatorMul(testContext, userList[:numUsers], t)
 			testEvaluatorMulHoisted(testContext, userList[:numUsers], t)
 			testEvaluatorRot(testContext, userList[:numUsers], t)
+			testEvaluatorRotHoisted(testContext, userList[:numUsers], t)
 			testEvaluatorConj(testContext, userList[:numUsers], t)
 		}
 	}
@@ -542,6 +543,54 @@ func testEvaluatorMulHoisted(testContext *testParams, userList []string, t *test
 			delta := msgRes.Value[i] - msg.Value[i]
 			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+12, math.Log2(math.Abs(real(delta))))
 			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+12, math.Log2(math.Abs(imag(delta))))
+		}
+	})
+
+}
+
+func testEvaluatorRotHoisted(testContext *testParams, userList []string, t *testing.T) {
+
+	params := testContext.params
+	numUsers := len(userList)
+	msgList := make([]*Message, numUsers)
+	ctList := make([]*Ciphertext, numUsers)
+
+	rtkSet := testContext.rtkSet
+	eval := testContext.evaluator
+
+	for i := range userList {
+		msgList[i], ctList[i] = newTestVectors(testContext, userList[i],
+			complex(0.5/float64(numUsers), 1.0/float64(numUsers)),
+			complex(0.5/float64(numUsers), 1.0/float64(numUsers)))
+	}
+
+	ct := ctList[0]
+	msg := msgList[0]
+	rot := 1 << int(utils.RandUint64()%uint64(params.logSlots-1))
+
+	for i := range userList {
+		ct = eval.AddNew(ct, ctList[i])
+
+		for j := range msg.Value {
+			msg.Value[j] += msgList[i].Value[j]
+		}
+	}
+
+	t.Run(GetTestName(testContext.params, "MKRotateHoisted: "+strconv.Itoa(numUsers)+"/ "), func(t *testing.T) {
+		eval.DropLevel(ct, 1)
+		ctHoisted := eval.HoistedForm(ct)
+		ctRes := eval.RotateHoistedNew(ct, rot, ctHoisted, rtkSet)
+		msgRes := testContext.decryptor.Decrypt(ctRes, testContext.skSet)
+
+		for i := range msgRes.Value {
+			var delta complex128
+			if rot > 0 {
+				delta = msgRes.Value[i] - msg.Value[(i+rot)%len(msg.Value)]
+			} else {
+				delta = msg.Value[i] - msgRes.Value[(i-rot)%len(msg.Value)]
+			}
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(real(delta))))
+			require.GreaterOrEqual(t, -math.Log2(params.Scale())+float64(params.LogSlots())+11, math.Log2(math.Abs(imag(delta))))
 		}
 	})
 

@@ -536,3 +536,39 @@ func (eval *Evaluator) mulRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1Hois
 	eval.ksw.MulAndRelinHoisted(op0.Ciphertext, op1.Ciphertext, op0Hoisted, op1Hoisted, rlkSet, ctOut.Ciphertext)
 	eval.Rescale(ctOut, eval.params.Scale(), ctOut)
 }
+
+// RotateNew rotates the columns of ct0 by k positions to the left, and returns the result in a newly created element.
+// If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
+func (eval *Evaluator) RotateHoistedNew(ct0 *Ciphertext, rotidx int, ct0Hoisted map[string]*mkrlwe.SwitchingKey, rkSet *mkrlwe.RotationKeySet) (ctOut *Ciphertext) {
+	ctOut = NewCiphertext(eval.params, ct0.IDSet(), ct0.Level(), ct0.Scale)
+	eval.rotateHoisted(ct0, rotidx, ct0Hoisted, rkSet, ctOut)
+	return
+}
+
+// Rotate rotates the columns of ct0 by k positions to the left and returns the result in ctOut.
+// If the provided element is a Ciphertext, a key-switching operation is necessary and a rotation key for the specific rotation needs to be provided.
+func (eval *Evaluator) rotateHoisted(ct0 *Ciphertext, rotidx int, ct0Hoisted map[string]*mkrlwe.SwitchingKey, rkSet *mkrlwe.RotationKeySet, ctOut *Ciphertext) {
+
+	// normalize rotidx
+	for rotidx >= eval.params.N()/2 {
+		rotidx -= eval.params.N() / 2
+	}
+
+	for rotidx < 0 {
+		rotidx += eval.params.N() / 2
+	}
+
+	if rotidx == 0 {
+		ctOut.Ciphertext.Copy(ct0.Ciphertext)
+		return
+	}
+
+	_, in := eval.params.CRS[rotidx]
+
+	if in {
+		eval.ksw.RotateHoisted(ct0.Ciphertext, rotidx, ct0Hoisted, rkSet, ctOut.Ciphertext)
+		return
+	} else {
+		panic("Hoisted rotation only works for precomputed rotation keys")
+	}
+}

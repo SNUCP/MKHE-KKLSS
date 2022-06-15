@@ -232,6 +232,7 @@ func (ks *KeySwitcher) MulAndRelin(op0, op1 *Ciphertext, rlkSet *Relinearization
 // Rotate rotates ctIn with ctOut with RotationKeySet and returns the result in ctOut.
 // Input ciphertext should be in InvNTT form
 func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySet, ctOut *Ciphertext) {
+
 	level := ctOut.Level()
 	idset := ctIn.IDSet()
 	params := ks.Parameters
@@ -247,11 +248,24 @@ func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySe
 		rotidx += (params.N() / 2)
 	}
 
-	galEl := params.GaloisElementForColumnRotationBy(rotidx)
+	// c0 <- c0 + IP(c_i, rk_i)
 
-	// permute ctIn and put it to ctOut
+	// c_i <- IP(c_i, a)
+	a := params.CRS[rotidx]
+
+	ctOut.Value["0"].Copy(ctIn.Value["0"])
+
+	for id := range idset.Value {
+		rk := rkSet.GetRotationKey(id, uint(rotidx))
+		ks.ExternalProduct(level, ctIn.Value[id], rk.Value, ks.polyQPool[0])
+		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
+
+		ks.ExternalProduct(level, ctIn.Value[id], a, ctOut.Value[id])
+	}
+
+	// permute ctOut
+	galEl := params.GaloisElementForColumnRotationBy(rotidx)
 	for id := range ctIn.Value {
-		//ringQ.Permute(ctIn.Value[id], galEl, ctOut.Value[id])
 
 		var mask, index, indexRaw, logN, tmp uint64
 
@@ -269,29 +283,18 @@ func (ks *KeySwitcher) Rotate(ctIn *Ciphertext, rotidx int, rkSet *RotationKeySe
 
 			for j, qi := range ringQ.Modulus {
 
-				if j > ctIn.Level() {
+				if j > level {
 					break
 				}
 
-				ctOut.Value[id].Coeffs[j][index] = ctIn.Value[id].Coeffs[j][i]*(tmp^1) | (qi-ctIn.Value[id].Coeffs[j][i])*tmp
+				ks.polyQPool[0].Coeffs[j][index] = ctOut.Value[id].Coeffs[j][i]*(tmp^1) | (qi-ctOut.Value[id].Coeffs[j][i])*tmp
 			}
 		}
 
-	}
-
-	// c0 <- c0 + IP(c_i, rk_i)
-	for id := range idset.Value {
-		rk := rkSet.GetRotationKey(id, uint(rotidx))
-		ks.ExternalProduct(level, ctOut.Value[id], rk.Value, ks.polyQPool[0])
-		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
-	}
-
-	// c_i <- IP(c_i, a)
-	a := params.CRS[rotidx]
-	for id := range idset.Value {
-		ks.ExternalProduct(level, ctOut.Value[id], a, ks.polyQPool[0])
 		ctOut.Value[id].Copy(ks.polyQPool[0])
+
 	}
+
 }
 
 // Conjugate conjugate ctIn with ctOut with ConjugationKeySet and returns the result in ctOut.

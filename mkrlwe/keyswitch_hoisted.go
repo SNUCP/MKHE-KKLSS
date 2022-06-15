@@ -2,6 +2,7 @@ package mkrlwe
 
 import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/ring"
+import "math/bits"
 
 // ExternalProduct applies internal product of input poly a & bg
 // the expected result is ab
@@ -176,4 +177,72 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		ks.ExternalProductHoisted(level, ks.swkPool3.Value, u, ks.polyQPool[2])
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[2], ctOut.Value[id])
 	}
+}
+
+// Rotate rotates ctIn with ctOut with RotationKeySet and returns the result in ctOut.
+// Input ciphertext should be in InvNTT form
+func (ks *KeySwitcher) RotateHoisted(ctIn *Ciphertext, rotidx int, ctInHoisted map[string]*SwitchingKey, rkSet *RotationKeySet, ctOut *Ciphertext) {
+
+	level := ctOut.Level()
+	idset := ctIn.IDSet()
+	params := ks.Parameters
+	ringQ := params.RingQ()
+
+	// check ctIn level
+	if ctIn.Level() < level {
+		panic("Cannot Rotate: ctIn and ctOut have different levels")
+	}
+
+	// adjust rotidx
+	for rotidx < 0 {
+		rotidx += (params.N() / 2)
+	}
+
+	// c0 <- c0 + IP(c_i, rk_i)
+
+	// c_i <- IP(c_i, a)
+	a := params.CRS[rotidx]
+
+	ctOut.Value["0"].Copy(ctIn.Value["0"])
+
+	for id := range idset.Value {
+		rk := rkSet.GetRotationKey(id, uint(rotidx))
+		ks.ExternalProductHoisted(level, ctInHoisted[id].Value, rk.Value, ks.polyQPool[0])
+		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
+
+		ks.ExternalProductHoisted(level, ctInHoisted[id].Value, a, ctOut.Value[id])
+	}
+
+	// permute ctOut
+	galEl := params.GaloisElementForColumnRotationBy(rotidx)
+	for id := range ctIn.Value {
+
+		var mask, index, indexRaw, logN, tmp uint64
+
+		mask = uint64(ringQ.N - 1)
+
+		logN = uint64(bits.Len64(mask))
+
+		for i := uint64(0); i < uint64(ringQ.N); i++ {
+
+			indexRaw = i * galEl
+
+			index = indexRaw & mask
+
+			tmp = (indexRaw >> logN) & 1
+
+			for j, qi := range ringQ.Modulus {
+
+				if j > level {
+					break
+				}
+
+				ks.polyQPool[0].Coeffs[j][index] = ctOut.Value[id].Coeffs[j][i]*(tmp^1) | (qi-ctOut.Value[id].Coeffs[j][i])*tmp
+			}
+		}
+
+		ctOut.Value[id].Copy(ks.polyQPool[0])
+
+	}
+
 }
