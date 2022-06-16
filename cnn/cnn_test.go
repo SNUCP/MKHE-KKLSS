@@ -77,7 +77,7 @@ var (
 	FC2       [][]complex128   // 64 x 10
 	B1        []complex128     // 64
 	B2        []complex128     // 10
-	PN14QP438 = ckks.ParametersLiteral{
+	PN14QP433 = ckks.ParametersLiteral{
 		LogN:     14,
 		LogSlots: 13,
 		Q: []uint64{
@@ -97,92 +97,84 @@ var (
 )
 
 func TestCNN(t *testing.T) {
-	defaultParams := []ckks.ParametersLiteral{PN14QP438}
+	defaultParam := PN14QP433
+	ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
+	params := mkckks.NewParameters(ckksParams)
 
-	for _, defaultParam := range defaultParams {
-		ckksParams, err := ckks.NewParametersFromLiteral(defaultParam)
-
-		if ckksParams.PCount() < 2 {
-			continue
-		}
-
-		params := mkckks.NewParameters(ckksParams)
-
-		if err != nil {
-			panic(err)
-		}
-
-		var testContext *testParams
-		idset := mkrlwe.NewIDSet()
-		idset.Add(modelOwner)
-		idset.Add(dataOwner)
-
-		if testContext, err = genTestParams(params, idset); err != nil {
-			panic(err)
-		}
-
-		readData()
-
-		// Precomputation
-		imageIndex := 2
-		ctImage := encryptImage(testContext, dataOwner, imageIndex)
-		ctKernels := encryptKernels(testContext, modelOwner)
-		ctFC1 := encryptFC1(testContext, modelOwner)
-		ctFC2 := encryptFC2(testContext, modelOwner)
-		ctB1 := encryptB1(testContext, modelOwner)
-		ctB2 := encryptB2(testContext, modelOwner)
-
-		eval := testContext.evaluator
-		rlkSet := testContext.rlkSet
-		rtkSet := testContext.rtkSet
-
-		ctImageHoisted := eval.HoistedForm(ctImage)
-		ctKernelsHoisted := make([]*mkrlwe.HoistedCiphertext, len(ctKernels))
-		for i := 0; i < len(ctKernelsHoisted); i++ {
-			ctKernelsHoisted[i] = eval.HoistedForm(ctKernels[i])
-		}
-		ctFC1Hoisted := make([]*mkrlwe.HoistedCiphertext, len(ctFC1))
-		for i := 0; i < len(ctFC1Hoisted); i++ {
-			ctFC1Hoisted[i] = eval.HoistedForm(ctFC1[i])
-		}
-
-		numSlots := testContext.params.Slots()
-		mask := make([]complex128, numSlots)
-		for i := 0; i < numSlots; i += 128 {
-			mask[i] = 1
-		}
-		msg := mkckks.NewMessage(testContext.params)
-		msg.Value = mask
-		ptMask := testContext.encryptor.EncodeMsgNew(msg)
-
-		// Evaluation
-		convOut := Convolution(eval, rlkSet, rtkSet, ctImage, ctImageHoisted, ctKernels, ctKernelsHoisted)
-
-		convOutHoisted := eval.HoistedForm(convOut)
-		square1Out := eval.MulRelinHoistedNew(convOut, convOut, convOutHoisted, convOutHoisted, rlkSet)
-		square1OutHoisted := eval.HoistedForm(square1Out)
-
-		fc1Out := FC1Layer(eval, rlkSet, rtkSet, square1Out, square1OutHoisted, ctFC1, ctFC1Hoisted, ctB1)
-		fc1OutHoisted := eval.HoistedForm(fc1Out)
-		square2Out := eval.MulRelinHoistedNew(fc1Out, fc1Out, fc1OutHoisted, fc1OutHoisted, rlkSet)
-
-		fc2Out := FC2Layer(eval, rlkSet, rtkSet, square2Out, ctFC2, ctB2, ptMask)
-
-		// Decrypt
-		ptResult := testContext.decryptor.Decrypt(fc2Out, testContext.skSet)
-		value := ptResult.Value
-		maxIndex := -1
-		maxValue := -100.0
-		for i := 0; i < 10; i++ {
-			if real(value[i]) > maxValue {
-				maxValue = real(value[i])
-				maxIndex = i
-			}
-		}
-
-		answer := int(real(classes[imageIndex]))
-		require.Equal(t, answer, maxIndex)
+	if err != nil {
+		panic(err)
 	}
+
+	var testContext *testParams
+	idset := mkrlwe.NewIDSet()
+	idset.Add(modelOwner)
+	idset.Add(dataOwner)
+
+	if testContext, err = genTestParams(params, idset); err != nil {
+		panic(err)
+	}
+
+	readData()
+
+	// Precomputation
+	imageIndex := 2
+	ctImage := encryptImage(testContext, dataOwner, imageIndex)
+	ctKernels := encryptKernels(testContext, modelOwner)
+	ctFC1 := encryptFC1(testContext, modelOwner)
+	ctFC2 := encryptFC2(testContext, modelOwner)
+	ctB1 := encryptB1(testContext, modelOwner)
+	ctB2 := encryptB2(testContext, modelOwner)
+
+	eval := testContext.evaluator
+	rlkSet := testContext.rlkSet
+	rtkSet := testContext.rtkSet
+
+	ctImageHoisted := eval.HoistedForm(ctImage)
+	ctKernelsHoisted := make([]*mkrlwe.HoistedCiphertext, len(ctKernels))
+	for i := 0; i < len(ctKernelsHoisted); i++ {
+		ctKernelsHoisted[i] = eval.HoistedForm(ctKernels[i])
+	}
+	ctFC1Hoisted := make([]*mkrlwe.HoistedCiphertext, len(ctFC1))
+	for i := 0; i < len(ctFC1Hoisted); i++ {
+		ctFC1Hoisted[i] = eval.HoistedForm(ctFC1[i])
+	}
+
+	numSlots := testContext.params.Slots()
+	mask := make([]complex128, numSlots)
+	for i := 0; i < numSlots; i += 128 {
+		mask[i] = 1
+	}
+	msg := mkckks.NewMessage(testContext.params)
+	msg.Value = mask
+	ptMask := testContext.encryptor.EncodeMsgNew(msg)
+
+	// Evaluation
+	convOut := Convolution(eval, rlkSet, rtkSet, ctImage, ctImageHoisted, ctKernels, ctKernelsHoisted)
+
+	convOutHoisted := eval.HoistedForm(convOut)
+	square1Out := eval.MulRelinHoistedNew(convOut, convOut, convOutHoisted, convOutHoisted, rlkSet)
+	square1OutHoisted := eval.HoistedForm(square1Out)
+
+	fc1Out := FC1Layer(eval, rlkSet, rtkSet, square1Out, square1OutHoisted, ctFC1, ctFC1Hoisted, ctB1)
+	fc1OutHoisted := eval.HoistedForm(fc1Out)
+	square2Out := eval.MulRelinHoistedNew(fc1Out, fc1Out, fc1OutHoisted, fc1OutHoisted, rlkSet)
+
+	fc2Out := FC2Layer(eval, rlkSet, rtkSet, square2Out, ctFC2, ctB2, ptMask)
+
+	// Decrypt
+	ptResult := testContext.decryptor.Decrypt(fc2Out, testContext.skSet)
+	value := ptResult.Value
+	maxIndex := -1
+	maxValue := -100.0
+	for i := 0; i < 10; i++ {
+		if real(value[i]) > maxValue {
+			maxValue = real(value[i])
+			maxIndex = i
+		}
+	}
+
+	answer := int(real(classes[imageIndex]))
+	require.Equal(t, answer, maxIndex)
 }
 
 func genTestParams(defaultParam mkckks.Parameters, idset *mkrlwe.IDSet) (testContext *testParams, err error) {
