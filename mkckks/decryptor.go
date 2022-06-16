@@ -35,6 +35,7 @@ func (dec *Decryptor) Decrypt(ciphertext *Ciphertext, skSet *mkrlwe.SecretKeySet
 	ctTmp := ciphertext.CopyNew()
 
 	dec.Decryptor.Decrypt(ctTmp.Ciphertext, skSet, dec.ptxtPool.Plaintext)
+	dec.ptxtPool.Scale = ctTmp.Scale
 	msg = new(Message)
 	msg.Value = dec.encoder.Decode(dec.ptxtPool, dec.params.logSlots)
 

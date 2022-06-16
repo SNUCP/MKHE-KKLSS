@@ -3,6 +3,7 @@ package mkckks
 import "mk-lattigo/mkrlwe"
 
 import "github.com/ldsec/lattigo/v2/ring"
+import "github.com/ldsec/lattigo/v2/ckks"
 import "github.com/ldsec/lattigo/v2/utils"
 
 import "math"
@@ -435,6 +436,27 @@ func (eval *Evaluator) mulRelin(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relineariza
 	ctOut.Scale = op0.ScalingFactor() * op1.ScalingFactor()
 	eval.ksw.MulAndRelin(op0.Ciphertext, op1.Ciphertext, rlkSet, ctOut.Ciphertext)
 	eval.Rescale(ctOut, eval.params.Scale(), ctOut)
+}
+
+// MulRelinNew multiplies ct0 by ct1 with relinearization and returns the result in a newly created element.
+// The procedure will panic if either op0.Degree or op1.Degree > 1.
+// The procedure will panic if the evaluator was not created with an relinearization key.
+func (eval *Evaluator) MulPtxtNew(ct *Ciphertext, pt *ckks.Plaintext) (ctOut *Ciphertext) {
+	ctOut = NewCiphertext(eval.params, ct.IDSet(), ct.Level(), ct.Scale*pt.Scale)
+
+	level := ct.Level()
+
+	eval.params.RingQ().NTTLvl(level, pt.Value, eval.polyQPool)
+	eval.params.RingQ().MFormLvl(level, eval.polyQPool, eval.polyQPool)
+
+	for id := range ct.Value {
+		eval.params.RingQ().NTTLvl(level, ct.Value[id], ctOut.Value[id])
+		eval.params.RingQ().MulCoeffsMontgomeryLvl(level, ctOut.Value[id], eval.polyQPool, ctOut.Value[id])
+		eval.params.RingQ().InvNTTLvl(level, ctOut.Value[id], ctOut.Value[id])
+	}
+
+	eval.Rescale(ctOut, eval.params.Scale(), ctOut)
+	return
 }
 
 // RotateNew rotates the columns of ct0 by k positions to the left, and returns the result in a newly created element.

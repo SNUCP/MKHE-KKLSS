@@ -74,6 +74,26 @@ func (params Parameters) Gamma() int {
 	return params.gamma
 }
 
-func (params *Parameters) AddCRS(crs *SwitchingKey, idx int) {
-	params.CRS[idx] = crs
+func (params *Parameters) AddCRS(idx int) {
+
+	prng, err := utils.NewPRNG()
+	if err != nil {
+		panic(err)
+	}
+	uniformSamplerQ := ring.NewUniformSampler(prng, params.RingQ())
+	uniformSamplerP := ring.NewUniformSampler(prng, params.RingP())
+
+	levelQ := params.QCount() - 1
+	levelP := params.PCount() - 1
+
+	beta := params.Beta(params.MaxLevel())
+	params.CRS[idx] = new(SwitchingKey)
+	params.CRS[idx].Value = make([]rlwe.PolyQP, beta)
+
+	for i := 0; i < beta; i++ {
+		params.CRS[idx].Value[i] = params.RingQP().NewPoly()
+		uniformSamplerQ.Read(params.CRS[idx].Value[i].Q)
+		uniformSamplerP.Read(params.CRS[idx].Value[i].P)
+		params.RingQP().MFormLvl(levelQ, levelP, params.CRS[idx].Value[i], params.CRS[idx].Value[i])
+	}
 }
