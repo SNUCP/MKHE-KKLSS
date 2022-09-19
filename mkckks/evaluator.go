@@ -420,24 +420,24 @@ func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *mkrlwe.Relinear
 		idset := op0.IDSet()
 		// Save decomposed ciphertext at rlkSet's pool
 		for id := range idset.Value {
-			eval.ksw.Decompose(op0.Level(), op0.Value[id], rlkSet.Pool[0].Value[id])
+			eval.ksw.Decompose(op0.Level(), op0.Value[id], rlkSet.HoistPool[0].Value[id])
 		}
 
-		return eval.MulRelinHoistedNew(op0, op1, rlkSet.Pool[0], rlkSet.Pool[0], rlkSet)
+		return eval.MulRelinHoistedNew(op0, op1, rlkSet.HoistPool[0], rlkSet.HoistPool[0], rlkSet)
 
 	} else {
 		idset0 := op0.IDSet()
 		idset1 := op1.IDSet()
 
 		for id := range idset0.Value {
-			eval.ksw.Decompose(op0.Level(), op0.Value[id], rlkSet.Pool[0].Value[id])
+			eval.ksw.Decompose(op0.Level(), op0.Value[id], rlkSet.HoistPool[0].Value[id])
 		}
 
 		for id := range idset1.Value {
-			eval.ksw.Decompose(op1.Level(), op1.Value[id], rlkSet.Pool[1].Value[id])
+			eval.ksw.Decompose(op1.Level(), op1.Value[id], rlkSet.HoistPool[1].Value[id])
 		}
 
-		return eval.MulRelinHoistedNew(op0, op1, rlkSet.Pool[0], rlkSet.Pool[1], rlkSet)
+		return eval.MulRelinHoistedNew(op0, op1, rlkSet.HoistPool[0], rlkSet.HoistPool[1], rlkSet)
 	}
 
 }

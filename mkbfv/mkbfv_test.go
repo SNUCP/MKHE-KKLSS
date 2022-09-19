@@ -202,21 +202,21 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 	testContext.skSet = mkrlwe.NewSecretKeySet()
 	testContext.pkSet = mkrlwe.NewPublicKeyKeySet()
 	testContext.rlkSet = NewRelinearizationKeyKeySet(testContext.params)
-	testContext.rtkSet = mkrlwe.NewRotationKeySet()
-	testContext.cjkSet = mkrlwe.NewConjugationKeySet()
+	//testContext.rtkSet = mkrlwe.NewRotationKeySet()
+	//testContext.cjkSet = mkrlwe.NewConjugationKeySet()
 
 	for id := range idset.Value {
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)
 		rlk := testContext.kgen.GenRelinearizationKey(sk, r)
-		cjk := testContext.kgen.GenConjugationKey(sk)
+		//cjk := testContext.kgen.GenConjugationKey(sk)
 
-		testContext.kgen.GenDefaultRotationKeys(sk, testContext.rtkSet)
+		//testContext.kgen.GenDefaultRotationKeys(sk, testContext.rtkSet)
 
 		testContext.skSet.AddSecretKey(sk)
 		testContext.pkSet.AddPublicKey(pk)
 		testContext.rlkSet.AddRelinearizationKey(rlk)
-		testContext.cjkSet.AddConjugationKey(cjk)
+		//testContext.cjkSet.AddConjugationKey(cjk)
 	}
 
 	testContext.ringQ = defaultParam.RingQ()
@@ -255,8 +255,8 @@ func TestMKBFV(t *testing.T) {
 			testEvaluatorAdd(testContext, userList[:numUsers], t)
 			testEvaluatorSub(testContext, userList[:numUsers], t)
 			testEvaluatorMul(testContext, userList[:numUsers], t)
-			testEvaluatorRot(testContext, userList[:numUsers], t)
-			testEvaluatorConj(testContext, userList[:numUsers], t)
+			//testEvaluatorRot(testContext, userList[:numUsers], t)
+			//testEvaluatorConj(testContext, userList[:numUsers], t)
 		}
 	}
 }

@@ -1,6 +1,5 @@
 package mkrlwe
 
-import "github.com/ldsec/lattigo/v2/rlwe"
 import "github.com/ldsec/lattigo/v2/ring"
 import "math/bits"
 
@@ -8,7 +7,7 @@ import "math/bits"
 // the expected result is ab
 // we assume one of a and bg is in MForm
 // we assume output is in InvNTT form
-func (ks *KeySwitcher) ExternalProductHoisted(levelQ int, aHoisted []rlwe.PolyQP, bg *SwitchingKey, c *ring.Poly) {
+func (ks *KeySwitcher) ExternalProductHoisted(levelQ int, aHoisted, bg *SwitchingKey, c *ring.Poly) {
 	params := ks.Parameters
 	ringQ := params.RingQ()
 	ringP := params.RingP()
@@ -26,9 +25,9 @@ func (ks *KeySwitcher) ExternalProductHoisted(levelQ int, aHoisted []rlwe.PolyQP
 		//ks.DecomposeSingleNTT(levelQ, levelP, alpha, i, params.Gamma(), aInvNTT, c0QP.Q, c0QP.P)
 
 		if i == 0 {
-			ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, bg.Value[i], aHoisted[i], c1QP)
+			ringQP.MulCoeffsMontgomeryLvl(levelQ, levelP, bg.Value[i], aHoisted.Value[i], c1QP)
 		} else {
-			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, bg.Value[i], aHoisted[i], c1QP)
+			ringQP.MulCoeffsMontgomeryAndAddLvl(levelQ, levelP, bg.Value[i], aHoisted.Value[i], c1QP)
 		}
 	}
 
@@ -149,7 +148,7 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		if op1Hoisted == nil {
 			ks.ExternalProduct(level, op1.Value[id], x, ks.polyQPool[0])
 		} else {
-			ks.ExternalProductHoisted(level, op1Hoisted.Value[id].Value, x, ks.polyQPool[0])
+			ks.ExternalProductHoisted(level, op1Hoisted.Value[id], x, ks.polyQPool[0])
 		}
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[0], ctOut.Value[id])
 	}
@@ -166,15 +165,15 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		if op0Hoisted == nil {
 			ks.ExternalProduct(level, op0.Value[id], y, ks.polyQPool[0])
 		} else {
-			ks.ExternalProductHoisted(level, op0Hoisted.Value[id].Value, y, ks.polyQPool[0])
+			ks.ExternalProductHoisted(level, op0Hoisted.Value[id], y, ks.polyQPool[0])
 		}
 
 		ks.Decompose(level, ks.polyQPool[0], ks.swkPool3)
 
-		ks.ExternalProductHoisted(level, ks.swkPool3.Value, v, ks.polyQPool[1])
+		ks.ExternalProductHoisted(level, ks.swkPool3, v, ks.polyQPool[1])
 		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[1], ctOut.Value["0"])
 
-		ks.ExternalProductHoisted(level, ks.swkPool3.Value, u, ks.polyQPool[2])
+		ks.ExternalProductHoisted(level, ks.swkPool3, u, ks.polyQPool[2])
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[2], ctOut.Value[id])
 	}
 }
@@ -207,10 +206,10 @@ func (ks *KeySwitcher) RotateHoisted(ctIn *Ciphertext, rotidx int, ctInHoisted *
 
 	for id := range idset.Value {
 		rk := rkSet.GetRotationKey(id, uint(rotidx))
-		ks.ExternalProductHoisted(level, ctInHoisted.Value[id].Value, rk.Value, ks.polyQPool[0])
+		ks.ExternalProductHoisted(level, ctInHoisted.Value[id], rk.Value, ks.polyQPool[0])
 		ringQ.AddLvl(level, ctOut.Value["0"], ks.polyQPool[0], ctOut.Value["0"])
 
-		ks.ExternalProductHoisted(level, ctInHoisted.Value[id].Value, a, ctOut.Value[id])
+		ks.ExternalProductHoisted(level, ctInHoisted.Value[id], a, ctOut.Value[id])
 	}
 
 	// permute ctOut

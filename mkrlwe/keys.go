@@ -51,8 +51,9 @@ type ConjugationKey struct {
 
 // RelinearizationKeySet is a type for a set of multikey RLWE relinearization keys.
 type RelinearizationKeySet struct {
-	Value map[string]*RelinearizationKey
-	Pool  [2]*HoistedCiphertext
+	params    Parameters
+	Value     map[string]*RelinearizationKey
+	HoistPool [2]*HoistedCiphertext
 }
 
 //RotationKeysSet is a type for a set of multikey RLWE rotation keys.
@@ -161,21 +162,23 @@ func (rkSet *RotationKeySet) GetRotationKey(id string, rotidx uint) *RotationKey
 }
 
 // NewRelinearizationKeySet returns a new empty RelinearizationKeySet
-func NewRelinearizationKeyKeySet() *RelinearizationKeySet {
+func NewRelinearizationKeyKeySet(params Parameters) *RelinearizationKeySet {
 	rlkSet := new(RelinearizationKeySet)
 	rlkSet.Value = make(map[string]*RelinearizationKey)
 
-	rlkSet.Pool[0] = NewHoistedCiphertext()
-	rlkSet.Pool[1] = NewHoistedCiphertext()
+	rlkSet.HoistPool[0] = NewHoistedCiphertext()
+	rlkSet.HoistPool[1] = NewHoistedCiphertext()
+
+	rlkSet.params = params
 
 	return rlkSet
 }
 
 // AddRelinearizationKey insert new publickey into RelinearizationKeySet with its id
-func (rlkSet *RelinearizationKeySet) AddRelinearizationKey(param Parameters, rlk *RelinearizationKey) {
+func (rlkSet *RelinearizationKeySet) AddRelinearizationKey(rlk *RelinearizationKey) {
 	rlkSet.Value[rlk.ID] = rlk
-	rlkSet.Pool[0].Value[rlk.ID] = NewSwitchingKey(param)
-	rlkSet.Pool[1].Value[rlk.ID] = NewSwitchingKey(param)
+	rlkSet.HoistPool[0].Value[rlk.ID] = NewSwitchingKey(rlkSet.params)
+	rlkSet.HoistPool[1].Value[rlk.ID] = NewSwitchingKey(rlkSet.params)
 }
 
 // DelRelinearizationKey delete publickey of given id from SecretKeySet

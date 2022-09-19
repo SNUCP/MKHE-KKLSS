@@ -123,11 +123,11 @@ func TestCKKS(t *testing.T) {
 
 		for numUsers := 2; numUsers <= *maxUsers; numUsers *= 2 {
 			testEvaluatorMul(testContext, userList[:numUsers], t)
-			testEvaluatorMulHoisted(testContext, userList[:numUsers], t)
-			testEvaluatorMulPtxt(testContext, userList[:numUsers], t)
-			testEvaluatorRot(testContext, userList[:numUsers], t)
-			testEvaluatorRotHoisted(testContext, userList[:numUsers], t)
-			testEvaluatorConj(testContext, userList[:numUsers], t)
+			//testEvaluatorMulHoisted(testContext, userList[:numUsers], t)
+			//testEvaluatorMulPtxt(testContext, userList[:numUsers], t)
+			//testEvaluatorRot(testContext, userList[:numUsers], t)
+			//testEvaluatorRotHoisted(testContext, userList[:numUsers], t)
+			//testEvaluatorConj(testContext, userList[:numUsers], t)
 		}
 	}
 }
@@ -142,7 +142,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 	testContext.skSet = mkrlwe.NewSecretKeySet()
 	testContext.pkSet = mkrlwe.NewPublicKeyKeySet()
-	testContext.rlkSet = mkrlwe.NewRelinearizationKeyKeySet()
+	testContext.rlkSet = mkrlwe.NewRelinearizationKeyKeySet(defaultParam.Parameters)
 	testContext.rtkSet = mkrlwe.NewRotationKeySet()
 	testContext.cjkSet = mkrlwe.NewConjugationKeySet()
 
@@ -152,14 +152,14 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 		sk, pk := testContext.kgen.GenKeyPair(id)
 		r := testContext.kgen.GenSecretKey(id)
 		rlk := testContext.kgen.GenRelinearizationKey(sk, r)
-		cjk := testContext.kgen.GenConjugationKey(sk)
+		//cjk := testContext.kgen.GenConjugationKey(sk)
 
-		testContext.kgen.GenDefaultRotationKeys(sk, testContext.rtkSet)
+		//testContext.kgen.GenDefaultRotationKeys(sk, testContext.rtkSet)
 
 		testContext.skSet.AddSecretKey(sk)
 		testContext.pkSet.AddPublicKey(pk)
-		testContext.rlkSet.AddRelinearizationKey(testContext.params.Parameters, rlk)
-		testContext.cjkSet.AddConjugationKey(cjk)
+		testContext.rlkSet.AddRelinearizationKey(rlk)
+		//testContext.cjkSet.AddConjugationKey(cjk)
 
 	}
 

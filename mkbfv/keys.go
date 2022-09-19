@@ -15,6 +15,9 @@ type RelinearizationKeySet struct {
 	PolyRPool1 map[string]*ring.Poly
 	PolyRPool2 map[string]*ring.Poly
 
+	HoistPool1 [2]*mkrlwe.HoistedCiphertext
+	HoistPool2 [2]*mkrlwe.HoistedCiphertext
+
 	params Parameters
 }
 
@@ -41,6 +44,12 @@ func NewRelinearizationKeyKeySet(params Parameters) *RelinearizationKeySet {
 	rlkSet.PolyRPool1["0"] = params.RingR().NewPoly()
 	rlkSet.PolyRPool2["0"] = params.RingR().NewPoly()
 
+	rlkSet.HoistPool1[0] = mkrlwe.NewHoistedCiphertext()
+	rlkSet.HoistPool1[1] = mkrlwe.NewHoistedCiphertext()
+
+	rlkSet.HoistPool2[0] = mkrlwe.NewHoistedCiphertext()
+	rlkSet.HoistPool2[1] = mkrlwe.NewHoistedCiphertext()
+
 	return rlkSet
 }
 
@@ -49,6 +58,12 @@ func (rlkSet *RelinearizationKeySet) AddRelinearizationKey(rlk *RelinearizationK
 	rlkSet.Value[rlk.ID] = rlk
 	rlkSet.PolyRPool1[rlk.ID] = rlkSet.params.RingR().NewPoly()
 	rlkSet.PolyRPool2[rlk.ID] = rlkSet.params.RingR().NewPoly()
+
+	rlkSet.HoistPool1[0].Value[rlk.ID] = mkrlwe.NewSwitchingKey(rlkSet.params.Parameters)
+	rlkSet.HoistPool1[1].Value[rlk.ID] = mkrlwe.NewSwitchingKey(rlkSet.params.Parameters)
+
+	rlkSet.HoistPool2[0].Value[rlk.ID] = mkrlwe.NewSwitchingKey(rlkSet.params.Parameters)
+	rlkSet.HoistPool2[1].Value[rlk.ID] = mkrlwe.NewSwitchingKey(rlkSet.params.Parameters)
 }
 
 // DelRelinearizationKey delete publickey of given id from SecretKeySet

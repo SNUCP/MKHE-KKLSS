@@ -83,7 +83,7 @@ func (eval *Evaluator) SubNew(op0, op1 *Ciphertext) (ctOut *Ciphertext) {
 // The procedure will panic if the evaluator was not created with an relinearization key.
 func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *RelinearizationKeySet) (ctOut *Ciphertext) {
 	ctOut = eval.newCiphertextBinary(op0, op1)
-	eval.mulRelin(op0, op1, rlkSet, ctOut)
+	eval.mulRelinHoisted(op0, op1, rlkSet, ctOut)
 	return
 }
 
@@ -109,6 +109,44 @@ func (eval *Evaluator) mulRelin(ct0, ct1 *Ciphertext, rlkSet *RelinearizationKey
 	}
 
 	eval.ksw.MulAndRelinBFV(ct0R, ct1R, rlkSet, ctOut.Ciphertext)
+}
+
+// MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
+// The procedure will panic if either op0.Degree or op1.Degree > 1.
+// The procedure will panic if ctOut.Degree != op0.Degree + op1.Degree.
+// The procedure will panic if the evaluator was not created with an relinearization key.
+func (eval *Evaluator) mulRelinHoisted(ct0, ct1 *Ciphertext, rlkSet *RelinearizationKeySet, ctOut *Ciphertext) {
+
+	ct0R := new(mkrlwe.Ciphertext)
+	ct0R.Value = make(map[string]*ring.Poly)
+	ct1R := new(mkrlwe.Ciphertext)
+	ct1R.Value = make(map[string]*ring.Poly)
+
+	for id := range ct0.Value {
+		ct0R.Value[id] = rlkSet.PolyRPool1[id]
+		eval.conv.ModUpQtoR(ct0.Value[id], ct0R.Value[id])
+	}
+
+	for id := range ct1.Value {
+		ct1R.Value[id] = rlkSet.PolyRPool2[id]
+		eval.conv.Rescale(ct1.Value[id], ct1R.Value[id])
+	}
+
+	idset0 := ct0.IDSet()
+	idset1 := ct1.IDSet()
+
+	for id := range idset0.Value {
+		eval.ksw.DecomposeBFV(ct0.Level(), ct0R.Value[id], rlkSet.HoistPool1[0].Value[id], rlkSet.HoistPool2[0].Value[id])
+	}
+
+	for id := range idset1.Value {
+		eval.ksw.DecomposeBFV(ct1.Level(), ct1R.Value[id], rlkSet.HoistPool1[1].Value[id], rlkSet.HoistPool2[1].Value[id])
+	}
+
+	eval.ksw.MulAndRelinBFVHoisted(ct0R, ct1R,
+		rlkSet.HoistPool1[0], rlkSet.HoistPool2[0],
+		rlkSet.HoistPool1[1], rlkSet.HoistPool2[1],
+		rlkSet, ctOut.Ciphertext)
 }
 
 // RotateNew rotates the columns of ct0 by k positions to the left, and returns the result in a newly created element.
