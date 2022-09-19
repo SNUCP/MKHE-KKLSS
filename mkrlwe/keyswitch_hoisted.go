@@ -144,7 +144,7 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		ringQ.InvNTTLvl(level, ctOut.Value[id], ctOut.Value[id])
 	}
 
-	//ctOut_j <- ctOut_j +  Inter(op1_j, x)
+	//ctOut_j <- ctOut_j +  Ext(op1_j, x)
 	for id := range idset1.Value {
 		if op1Hoisted == nil {
 			ks.ExternalProduct(level, op1.Value[id], x, ks.polyQPool[0])
@@ -154,8 +154,8 @@ func (ks *KeySwitcher) MulAndRelinHoisted(op0, op1 *Ciphertext, op0Hoisted, op1H
 		ringQ.AddLvl(level, ctOut.Value[id], ks.polyQPool[0], ctOut.Value[id])
 	}
 
-	//ctOut_0 <- ctOut_0 + Inter(Inter(op0_i, y), v_i)
-	//ctOut_i <- ctOut_i + Inter(Inter(op0_i, y), u)
+	//ctOut_0 <- ctOut_0 + Ext(Ext(op0_i, y), v_i)
+	//ctOut_i <- ctOut_i + Ext(Ext(op0_i, y), u)
 
 	u := params.CRS[-1]
 
@@ -198,9 +198,9 @@ func (ks *KeySwitcher) RotateHoisted(ctIn *Ciphertext, rotidx int, ctInHoisted *
 		rotidx += (params.N() / 2)
 	}
 
-	// c0 <- c0 + IP(c_i, rk_i)
+	// c0 <- c0 + Ext(c_i, rk_i)
 
-	// c_i <- IP(c_i, a)
+	// c_i <- Ext(c_i, a)
 	a := params.CRS[rotidx]
 
 	ctOut.Value["0"].Copy(ctIn.Value["0"])

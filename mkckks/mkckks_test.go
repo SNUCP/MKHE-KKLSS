@@ -158,7 +158,7 @@ func genTestParams(defaultParam Parameters, idset *mkrlwe.IDSet) (testContext *t
 
 		testContext.skSet.AddSecretKey(sk)
 		testContext.pkSet.AddPublicKey(pk)
-		testContext.rlkSet.AddRelinearizationKey(rlk)
+		testContext.rlkSet.AddRelinearizationKey(testContext.params.Parameters, rlk)
 		testContext.cjkSet.AddConjugationKey(cjk)
 
 	}

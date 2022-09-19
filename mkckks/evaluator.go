@@ -414,11 +414,32 @@ func (eval *Evaluator) RescaleNew(ct0 *Ciphertext, threshold float64) (ctOut *Ci
 // The procedure will panic if either op0.Degree or op1.Degree > 1.
 // The procedure will panic if the evaluator was not created with an relinearization key.
 func (eval *Evaluator) MulRelinNew(op0, op1 *Ciphertext, rlkSet *mkrlwe.RelinearizationKeySet) (ctOut *Ciphertext) {
-	//ctOut = NewCiphertext(eval.params, op0.IDSet().Union(op1.IDSet()), utils.MinInt(op0.Level(), op1.Level()), 0)
-	ctOut = eval.newCiphertextBinary(op0, op1)
-	ctOut.Scale = 0
-	eval.mulRelin(op0, op1, rlkSet, ctOut)
-	return
+
+	//case of square
+	if op0 == op1 {
+		idset := op0.IDSet()
+		// Save decomposed ciphertext at rlkSet's pool
+		for id := range idset.Value {
+			eval.ksw.Decompose(op0.Level(), op0.Value[id], rlkSet.Pool[0].Value[id])
+		}
+
+		return eval.MulRelinHoistedNew(op0, op1, rlkSet.Pool[0], rlkSet.Pool[0], rlkSet)
+
+	} else {
+		idset0 := op0.IDSet()
+		idset1 := op1.IDSet()
+
+		for id := range idset0.Value {
+			eval.ksw.Decompose(op0.Level(), op0.Value[id], rlkSet.Pool[0].Value[id])
+		}
+
+		for id := range idset1.Value {
+			eval.ksw.Decompose(op1.Level(), op1.Value[id], rlkSet.Pool[1].Value[id])
+		}
+
+		return eval.MulRelinHoistedNew(op0, op1, rlkSet.Pool[0], rlkSet.Pool[1], rlkSet)
+	}
+
 }
 
 // MulRelin multiplies op0 with op1 with relinearization and returns the result in ctOut.
