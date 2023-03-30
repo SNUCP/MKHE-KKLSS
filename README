@@ -1,3 +1,10 @@
+This repository provides an implementation of the Multi-key Homomorphic Encryption scheme in (https://eprint.iacr.org/2022/347).
+This project was supported by Samsung Research, Samsung Electronics Co., Ltd.
+
+LICENSE
+===============
+Attribution-NonCommercial 2.0 Generic (CC BY-NC 2.0)
+
 HOW TO INSTALL
 ==============
 use "go mod vendor" 
@@ -13,4 +20,3 @@ HOW TO RUN BENCHMARK
 ====================
 1. go to target folder (e.g for mkckks "cd mkckks")
 2. run go benchmark command "go test -bench=. -benchtime=10x -timeout=0 -args -n=4" (This runs 10 repetition of benchmark for the 4 party case)
-
